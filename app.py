@@ -5,6 +5,7 @@ from SKU import SKUMAP  # Import the mapping
 from ExcelSKU import EXCEL_SKU  # Import the Excel SKU mapping
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
+from tkinkterHelper import show_lot_code_popup
 
 # File path to the local Excel file
 EXCEL_FILE_PATH = r"C:/Users/Gabby/Pet Releaf/Warehouse - Documents/Current Lot Code Data 2.xlsx"
@@ -120,9 +121,8 @@ def fetch_lot_details(lot_code):
 
     # Fetch expiration date and inventory count
     expiration_date = matching_row["BB Date"].iloc[0] if "BB Date" in matching_row.columns else None
-    inventory_count = matching_row["Remaining Life"].iloc[0] if "Remaining Life" in matching_row.columns else None
 
-    return expiration_date, inventory_count
+    return expiration_date
 
 def monitor_and_update():
     print("Waiting for UPC in cell A4...")
@@ -154,30 +154,31 @@ def monitor_and_update():
 
                     # Write lot codes to C4
                     # Instead of writing a single string, write the list as rows
+                    # Call the Tkinter popup to let the user select a lot code
                     if lot_codes:
-                        dropdown_list = [[lot] for lot in lot_codes]  # Convert to 2D array (vertical list)
-                        write_to_google_sheets(dropdown_list, SPREADSHEET_ID, SHEET_NAME, "C4")
-                        print(f"Dropdown list written to C4: {', '.join(lot_codes)}")
-
-                    else:
-                        write_to_google_sheets("No Lots Found", SPREADSHEET_ID, SHEET_NAME, "C4")
-                        print("No lot codes found. 'No Lots Found' written to C4.")
-
-                elif value_str in SKUMAP.values():
-                    print(f"Ignored value in A4 as it is already a Full SKU: {value_str}")
-                else:
-                    print(f"Ignored value in A4 as it is not a valid UPC or SKU: {value_str}")
+                        selected_lot_code = show_lot_code_popup(lot_codes)
+                        print(f"Selected Lot Code: {selected_lot_code}")
+                        if selected_lot_code:
+                            expiration_date = fetch_lot_details(selected_lot_code)
+                            if expiration_date is not None:
+                                expiration_date = str(expiration_date)  # Convert Timestamp to string
+                                write_to_google_sheets(expiration_date, SPREADSHEET_ID, SHEET_NAME, "E4")
+                                print(f"Details for Lot Code {selected_lot_code} written to E4 and F4.")
+                            else:
+                                write_to_google_sheets("Details Not Found", SPREADSHEET_ID, SHEET_NAME, "E4")
+                                write_to_google_sheets("Details Not Found", SPREADSHEET_ID, SHEET_NAME, "F4")
+                        else:
+                            print("No lot code selected.")
 
             # Step 3: Monitor D4 for lot code selection
             selected_lot_code = read_cell(SPREADSHEET_ID, SHEET_NAME, "C4")
             print(f"Detected Lot Code in C4: {selected_lot_code}")
 
             if selected_lot_code:
-                expiration_date, inventory_count = fetch_lot_details(selected_lot_code)
-                if expiration_date and inventory_count is not None:
+                expiration_date = fetch_lot_details(selected_lot_code)
+                if expiration_date is not None:
                     expiration_date = str(expiration_date)  # Convert Timestamp to string
                     write_to_google_sheets(expiration_date, SPREADSHEET_ID, SHEET_NAME, "E4")
-                    write_to_google_sheets(inventory_count, SPREADSHEET_ID, SHEET_NAME, "F4")
                     print(f"Details for Lot Code {selected_lot_code} written to E4 and F4.")
                 else:
                     write_to_google_sheets("Details Not Found", SPREADSHEET_ID, SHEET_NAME, "E4")
