@@ -101,14 +101,32 @@ def fetch_lot_codes(sku):
     print(f"Lot codes for Excel SKU '{excel_sku}': {lot_codes}")
     return lot_codes
 
-# Monitor A4 for a UPC and update SKU and Lot Codes
+ # Fetch expiration date and inventory for the selected lot code
+def fetch_lot_details(lot_code):
+    # Read the Excel file
+    excel_data = pd.read_excel(EXCEL_FILE_PATH)
+
+    # Locate the Lot # column
+    lot_column = next((col for col in excel_data.columns if "Lot" in col), None)
+    if not lot_column:
+        print("No Lot # column found in the Excel file.")
+        return None, None
+
+    # Locate the matching row
+    matching_row = excel_data.loc[excel_data[lot_column] == int(lot_code)]
+    if matching_row.empty:
+        print(f"Lot code '{lot_code}' not found in the Excel file.")
+        return None, None
+
+    # Fetch expiration date and inventory count
+    expiration_date = matching_row["BB Date"].iloc[0] if "BB Date" in matching_row.columns else None
+    inventory_count = matching_row["Remaining Life"].iloc[0] if "Remaining Life" in matching_row.columns else None
+
+    return expiration_date, inventory_count
+
 def monitor_and_update():
     print("Waiting for UPC in cell A4...")
     previous_value = None
-    detected_sku = None
-
-    # Debug: Verify SKUMAP keys
-    print("Loaded SKUMAP Keys:", list(SKUMAP.keys()))
 
     while True:
         try:
@@ -129,38 +147,47 @@ def monitor_and_update():
 
                     # Write Full SKU back to A4
                     write_to_google_sheets(detected_sku, SPREADSHEET_ID, SHEET_NAME, "A4")
-                    print("UPC processed. Breaking the loop to handle lot codes.")
-                    break
+
+                    # Fetch lot codes for the detected SKU
+                    lot_codes = fetch_lot_codes(detected_sku)
+                    print(f"Lot Codes: {lot_codes}")
+
+                    # Write lot codes to C4
+                    # Instead of writing a single string, write the list as rows
+                    if lot_codes:
+                        dropdown_list = [[lot] for lot in lot_codes]  # Convert to 2D array (vertical list)
+                        write_to_google_sheets(dropdown_list, SPREADSHEET_ID, SHEET_NAME, "C4")
+                        print(f"Dropdown list written to C4: {', '.join(lot_codes)}")
+
+                    else:
+                        write_to_google_sheets("No Lots Found", SPREADSHEET_ID, SHEET_NAME, "C4")
+                        print("No lot codes found. 'No Lots Found' written to C4.")
 
                 elif value_str in SKUMAP.values():
                     print(f"Ignored value in A4 as it is already a Full SKU: {value_str}")
                 else:
                     print(f"Ignored value in A4 as it is not a valid UPC or SKU: {value_str}")
 
+            # Step 3: Monitor D4 for lot code selection
+            selected_lot_code = read_cell(SPREADSHEET_ID, SHEET_NAME, "C4")
+            print(f"Detected Lot Code in C4: {selected_lot_code}")
+
+            if selected_lot_code:
+                expiration_date, inventory_count = fetch_lot_details(selected_lot_code)
+                if expiration_date and inventory_count is not None:
+                    expiration_date = str(expiration_date)  # Convert Timestamp to string
+                    write_to_google_sheets(expiration_date, SPREADSHEET_ID, SHEET_NAME, "E4")
+                    write_to_google_sheets(inventory_count, SPREADSHEET_ID, SHEET_NAME, "F4")
+                    print(f"Details for Lot Code {selected_lot_code} written to E4 and F4.")
+                else:
+                    write_to_google_sheets("Details Not Found", SPREADSHEET_ID, SHEET_NAME, "E4")
+                    write_to_google_sheets("Details Not Found", SPREADSHEET_ID, SHEET_NAME, "F4")
+
         except Exception as e:
             print(f"Error in monitoring and updating: {e}")
 
         # Wait before checking again
         time.sleep(5)
-
-    # Step 3: Handle lot codes outside the loop
-    if detected_sku:
-        try:
-            # Fetch lot codes for the detected SKU
-            lot_codes = fetch_lot_codes(detected_sku)
-            print(f"Lot Codes: {lot_codes}")
-
-            # Write lot codes to C4
-            if lot_codes:
-                dropdown_list = ", ".join(lot_codes)
-                write_to_google_sheets(dropdown_list, SPREADSHEET_ID, SHEET_NAME, "C4")
-                print(f"Dropdown list written to C4: {dropdown_list}")
-            else:
-                write_to_google_sheets("No Lots Found", SPREADSHEET_ID, SHEET_NAME, "C4")
-                print("No lot codes found. 'No Lots Found' written to C4.")
-        except Exception as e:
-            print(f"Error in fetching and writing lot codes: {e}")
-
 
 if __name__ == "__main__":
     monitor_and_update()
