@@ -26,7 +26,7 @@ def read_cell(spreadsheet_id, sheet_name, cell_range):
     range_name = f"{sheet_name}!{cell_range}"
     result = service.values().get(spreadsheetId=spreadsheet_id, range=range_name).execute()
     values = result.get('values', [])
-    return values[0][0] if values else None
+    return str(values[0][0]).strip() if values else None
 
 # Write data to Google Sheets
 def write_to_google_sheets(data, spreadsheet_id, sheet_name, start_cell):
@@ -43,95 +43,123 @@ def write_to_google_sheets(data, spreadsheet_id, sheet_name, start_cell):
 def read_excel_file(file_path):
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"The file at {file_path} does not exist.")
-    try:
-        return pd.read_excel(file_path)
-    except PermissionError:
-        print(f"Permission denied for file at {file_path}. Ensure it's not open in another program.")
-        raise
-    except Exception as e:
-        print(f"An error occurred while reading the Excel file: {e}")
-        raise
+    return pd.read_excel(file_path)
 
-# Fetch lot numbers for a given SKU by scanning until "Total"
-def get_lot_numbers_from_excel(sku):
+# Fetch lot codes from Excel based on the Excel SKU
+def fetch_lot_codes(sku):
+    # Read the Excel file
     excel_data = read_excel_file(EXCEL_FILE_PATH)
-    sku_in_excel = EXCEL_SKU.get(sku, sku)  # Handle mismatched SKUs
+    
+    # Map Full SKU to Excel SKU
+    excel_sku = EXCEL_SKU.get(sku)
+    if not excel_sku:
+        print(f"SKU '{sku}' not found in ExcelSKU mapping.")
+        return []
 
-    # Combine all "SKU" columns into a single series for searching
-    sku_columns = [col for col in excel_data.columns if "SKU" in col]
-    if not sku_columns:
-        print("No SKU columns found in the Excel file.")
-        return ["No Lots Found"]
+    print(f"Searching for Excel SKU: '{excel_sku}'")
 
-    # Iterate over each SKU column
-    for sku_column in sku_columns:
-        matching_rows = excel_data.loc[excel_data[sku_column] == sku_in_excel]
-        if not matching_rows.empty:
-            print(f"Found SKU in column: {sku_column}")
+    # Locate the SKU column
+    sku_column = next((col for col in excel_data.columns if "SKU" in col), None)
+    if not sku_column:
+        print("No SKU column found in the Excel file.")
+        return []
 
-            # Start from the row where the SKU was found and collect lot numbers
-            lot_column_index = excel_data.columns.get_loc(sku_column) + 1  # Assume "Lot #" is the next column
-            lot_column_name = excel_data.columns[lot_column_index]
+    # Debug: Print all SKU values in the column
+    print(f"SKU column values:\n{excel_data[sku_column].dropna().tolist()}")
 
-            # Collect lot numbers downward until encountering "Total"
-            lot_numbers = []
-            for index, row in matching_rows.iterrows():
-                lot_row = index + 1  # Start scanning the next row
-                while lot_row < len(excel_data) and str(excel_data.iloc[lot_row, lot_column_index]).strip() != "Total":
-                    lot_value = excel_data.iloc[lot_row, lot_column_index]
-                    if pd.notna(lot_value):
-                        lot_numbers.append(str(lot_value).strip())
-                    lot_row += 1
+    # Clean and normalize SKU column for comparison
+    excel_data[sku_column] = excel_data[sku_column].astype(str).str.strip()
 
-            return lot_numbers if lot_numbers else ["No Lots Found"]
+    # Find the row with the matching SKU
+    matching_row = excel_data.loc[excel_data[sku_column] == excel_sku]
+    if matching_row.empty:
+        print(f"Excel SKU '{excel_sku}' not found in the Excel file.")
+        return []
 
-    print("SKU not found in any column.")
-    return ["No Lots Found"]
+    # Debug: Print the matching row
+    print(f"Matching row for '{excel_sku}':\n{matching_row}")
 
+    # Get the cell to the right of the matching SKU
+    row_index = matching_row.index[0]
+    lot_column_index = excel_data.columns.get_loc(sku_column) + 1
+    lot_codes = []
 
+    # Traverse downward until encountering "Total"
+    while row_index < len(excel_data):
+        lot_value = excel_data.iloc[row_index, lot_column_index]
 
-# Monitor A4 for a UPC and update SKU and Lot Numbers
+        # Debug: Print the lot value being checked
+        print(f"Row: {row_index}, Lot Value: {lot_value} (Type: {type(lot_value)})")
+
+        if isinstance(lot_value, str) and lot_value.strip() == "Total":
+            print("Reached 'Total'. Stopping the scan.")
+            break
+        if pd.notna(lot_value):
+            lot_codes.append(str(lot_value).strip())
+        row_index += 1
+
+    print(f"Lot codes for Excel SKU '{excel_sku}': {lot_codes}")
+    return lot_codes
+
+# Monitor A4 for a UPC and update SKU and Lot Codes
 def monitor_and_update():
     print("Waiting for UPC in cell A4...")
     previous_value = None
+    detected_sku = None
+
+    # Debug: Verify SKUMAP keys
+    print("Loaded SKUMAP Keys:", list(SKUMAP.keys()))
 
     while True:
         try:
-            # Step 1: Check cell A4
-            upc = read_cell(SPREADSHEET_ID, SHEET_NAME, "A4")
-            if upc and upc != previous_value:
-                print(f"Detected UPC: {upc}")
-                previous_value = upc
+            # Step 1: Read cell A4
+            value = read_cell(SPREADSHEET_ID, SHEET_NAME, "A4")
+            print(f"Detected Value in A4: {value}")
 
-                # Step 2: Look up Full SKU
-                full_sku = SKUMAP.get(upc, "Unknown SKU")
-                print(f"Full SKU: {full_sku}")
+            # Step 2: Process if value has changed
+            if value and value != previous_value:
+                previous_value = value
+                value_str = str(value).strip()
 
-                # Stop processing if "Unknown SKU" is detected
-                if full_sku == "Unknown SKU":
-                    print("Stopping processing due to 'Unknown SKU'.")
-                    break  # Exit the loop
+                # Check if value is in SKUMAP
+                if value_str in SKUMAP.keys():
+                    print(f"Detected UPC: {value_str}")
+                    detected_sku = SKUMAP[value_str]
+                    print(f"Full SKU: {detected_sku}")
 
-                # Step 3: Write Full SKU back to A4
-                write_to_google_sheets(full_sku, SPREADSHEET_ID, SHEET_NAME, "A4")
+                    # Write Full SKU back to A4
+                    write_to_google_sheets(detected_sku, SPREADSHEET_ID, SHEET_NAME, "A4")
+                    print("UPC processed. Breaking the loop to handle lot codes.")
+                    break
 
-                # Step 4: Fetch lot numbers from Excel
-                lot_numbers = get_lot_numbers_from_excel(full_sku)
-                print(f"Lot Numbers: {lot_numbers}")
-
-                # Write lot numbers to C4
-                lot_numbers_str = ", ".join(map(str, lot_numbers))  # Ensure all elements are strings
-                write_to_google_sheets(lot_numbers_str, SPREADSHEET_ID, SHEET_NAME, "C4")
-
-                # Stop monitoring after processing
-                print("Processing complete. Stopping monitoring.")
-                break  # Exit the loop after processing successfully
+                elif value_str in SKUMAP.values():
+                    print(f"Ignored value in A4 as it is already a Full SKU: {value_str}")
+                else:
+                    print(f"Ignored value in A4 as it is not a valid UPC or SKU: {value_str}")
 
         except Exception as e:
             print(f"Error in monitoring and updating: {e}")
 
-        # Step 5: Wait before checking again
-        time.sleep(5)  # Check every 5 seconds
+        # Wait before checking again
+        time.sleep(5)
+
+    # Step 3: Handle lot codes outside the loop
+    if detected_sku:
+        try:
+            # Fetch lot codes for the detected SKU
+            lot_codes = fetch_lot_codes(detected_sku)
+            print(f"Lot Codes: {lot_codes}")
+
+            # Write lot codes to C4
+            if lot_codes:
+                dropdown_list = ", ".join(lot_codes)
+                write_to_google_sheets(dropdown_list, SPREADSHEET_ID, SHEET_NAME, "C4")
+                print(f"Dropdown list written to C4: {dropdown_list}")
+            else:
+                write_to_google_sheets("No Lots Found", SPREADSHEET_ID, SHEET_NAME, "C4")
+                print("No lot codes found. 'No Lots Found' written to C4.")
+        except Exception as e:
+            print(f"Error in fetching and writing lot codes: {e}")
 
 
 if __name__ == "__main__":

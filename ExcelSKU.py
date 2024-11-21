@@ -10,7 +10,7 @@ EXCEL_SKU = {
     "Edi-HJ-PB-LRG": "HJ-PB-LRG",
     "Edi-HJ-PB-FAM": "HJ-PB-FAM",
     "TS-Edi-STRESS-PB": "TS-STRESS-PB",
-    "Edi-STRESS-PB-SML": "STRESS-PB-SML",
+    "Edi-STRESS-PB-SML": "STRESS -PB-SML",
     "Edi-STRESS-PB-LRG": "STRESS-PB-LRG",
     "Edi-STRESS-PB-FAM": "STRESS-PB-FAM",
     "Edi-DR-SP-SML": "DR-SP-SML",
