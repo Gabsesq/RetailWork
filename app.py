@@ -8,7 +8,7 @@ from googleapiclient.discovery import build
 from tkinkterHelper import show_lot_code_popup
 
 # File path to the local Excel file
-EXCEL_FILE_PATH = r"C:/Users/Gabby/Pet Releaf/Warehouse - Documents/Current Lot Code Data 2.xlsx"
+EXCEL_FILE_PATH = r"Current Lot Code Data 2.xlsx"
 
 # Google Sheets setup
 SPREADSHEET_ID = "1MYUwuPTPNY7P_e1sBvzV1m-VDDlJq6mnrLy3tGM1Duw"
@@ -155,20 +155,32 @@ def monitor_and_update():
                     # Write lot codes to C4
                     # Instead of writing a single string, write the list as rows
                     # Call the Tkinter popup to let the user select a lot code
-                    if lot_codes:
-                        selected_lot_code = show_lot_code_popup(lot_codes)
-                        print(f"Selected Lot Code: {selected_lot_code}")
-                        if selected_lot_code:
-                            expiration_date = fetch_lot_details(selected_lot_code)
-                            if expiration_date is not None:
-                                expiration_date = str(expiration_date)  # Convert Timestamp to string
-                                write_to_google_sheets(expiration_date, SPREADSHEET_ID, SHEET_NAME, "E4")
-                                print(f"Details for Lot Code {selected_lot_code} written to E4 and F4.")
-                            else:
-                                write_to_google_sheets("Details Not Found", SPREADSHEET_ID, SHEET_NAME, "E4")
-                                write_to_google_sheets("Details Not Found", SPREADSHEET_ID, SHEET_NAME, "F4")
+                if lot_codes:
+                    selected_lot_code = show_lot_code_popup(lot_codes)
+                    print(f"Selected Lot Code: {selected_lot_code}")
+                    if selected_lot_code:
+                        # Write the selected lot code to C4
+                        write_to_google_sheets(selected_lot_code, SPREADSHEET_ID, SHEET_NAME, "C4")
+                        print(f"Selected Lot Code {selected_lot_code} written to C4.")
+
+                        # Fetch and write expiration date details
+                        expiration_date = fetch_lot_details(selected_lot_code)
+                        if expiration_date is not None:
+                            # Ensure only the date part is extracted
+                            if isinstance(expiration_date, pd.Timestamp):  # If it's a Pandas Timestamp
+                                expiration_date = expiration_date.strftime('%Y-%m-%d')  # Format as YYYY-MM-DD
+                            elif isinstance(expiration_date, str) and ' ' in expiration_date:  # If it's a string with time
+                                expiration_date = expiration_date.split(' ')[0]  # Keep only the date part
+
+                            write_to_google_sheets(expiration_date, SPREADSHEET_ID, SHEET_NAME, "E4")
+                            print(f"Details for Lot Code {selected_lot_code} written to E4.")
+
                         else:
-                            print("No lot code selected.")
+                            write_to_google_sheets("Details Not Found", SPREADSHEET_ID, SHEET_NAME, "E4")
+                            write_to_google_sheets("Details Not Found", SPREADSHEET_ID, SHEET_NAME, "F4")
+                    else:
+                        print("No lot code selected.")
+
 
             # Step 3: Monitor D4 for lot code selection
             selected_lot_code = read_cell(SPREADSHEET_ID, SHEET_NAME, "C4")
