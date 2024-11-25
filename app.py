@@ -145,39 +145,71 @@ def fetch_lot_details(lot_code):
 
     return expiration_date
 
-import win32print
-import win32api
-from io import BytesIO
 
-PRINTER_NAME = "Brother MFC-L8900CDW series"  # Replace with your printer name
+def print_pdf(file_path, printer_name):
+    """
+    Print a PDF file using the specified printer.
+    """
+    try:
+        with open(file_path, "rb") as pdf_file:
+            raw_data = pdf_file.read()
+
+        # Get the printer handle
+        printer_handle = win32print.OpenPrinter(printer_name)
+        printer_info = win32print.GetPrinter(printer_handle, 2)
+
+        # Start a print job
+        job_name = os.path.basename(file_path)
+        job_id = win32print.StartDocPrinter(printer_handle, 1, (job_name, None, "RAW"))
+        win32print.StartPagePrinter(printer_handle)
+
+        # Write data to the printer
+        win32print.WritePrinter(printer_handle, raw_data)
+
+        # End the print job
+        win32print.EndPagePrinter(printer_handle)
+        win32print.EndDocPrinter(printer_handle)
+        win32print.ClosePrinter(printer_handle)
+
+        print(f"Printing {file_path} to {printer_name} completed.")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"Error in printing PDF using win32print: {e}")
 
 def print_google_sheet():
+    """
+    Export Google Sheet to PDF and print using the specified printer.
+    """
     try:
         sheets_service, drive_service = connect_to_google_services()
         file_id = SPREADSHEET_ID  # Google Sheet's ID
         mime_type = "application/pdf"
-        
+
         # Export the Google Sheet as a PDF using the Drive API
         request = drive_service.files().export(fileId=file_id, mimeType=mime_type)
         file_stream = BytesIO()
         downloader = MediaIoBaseDownload(file_stream, request)
-        
+
         done = False
         while not done:
             status, done = downloader.next_chunk()
             print(f"Download Progress: {int(status.progress() * 100)}%")
-        
+
         # Save the PDF locally
-        pdf_path = os.path.join(os.getcwd(), "sheet_to_print.pdf")
+        pdf_path = os.path.abspath("sheet_to_print.pdf")
         with open(pdf_path, "wb") as pdf_file:
             pdf_file.write(file_stream.getvalue())
         print(f"PDF saved at {pdf_path}")
-        
-        # Print the PDF using the default printer
-        win32api.ShellExecute(0, "print", pdf_path, None, ".", 0)
-        print("Printing initiated.")
+
+        # Call the helper function to print the PDF
+        print_pdf(pdf_path, PRINTER_NAME)
+
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"Error in printing Google Sheet: {e}")
+
 
 
 
@@ -192,26 +224,26 @@ def monitor_and_update():
             # Connect to Google Sheets
             sheets_service, _ = connect_to_google_services()  # Extract sheets_service
             
-            # Step 2: Check for 'P' in A28 for printing
-            print_trigger = read_cell(SPREADSHEET_ID, SHEET_NAME, "A28")
-            if print_trigger and print_trigger.upper() == "P":
-                print("Print trigger detected in A28. Starting print process...")
+            # Step 2: Check for 'P' in A30 for printing
+            print_trigger = read_cell(SPREADSHEET_ID, SHEET_NAME, "A30")
+            if print_trigger and print_trigger.upper() == "1":
+                print("Print trigger detected in A30. Starting print process...")
                 print_google_sheet()
                 
                 # Clear the 'P' after printing to prevent repeated triggers
-                write_to_google_sheets("", SPREADSHEET_ID, SHEET_NAME, "A28")
+                write_to_google_sheets("", SPREADSHEET_ID, SHEET_NAME, "A30")
                 print("Print trigger cleared.")
             
-            # Step 3: Read the range A4:A27
-            print("Scanning for 12-digit UPCs starting with '8' in A4:A27...")
+            # Step 3: Read the range A4:A29
+            print("Scanning for 12-digit UPCs starting with '8' in A4:A29...")
             result = sheets_service.spreadsheets().values().get(
                 spreadsheetId=SPREADSHEET_ID,
-                range="Sheet1!A4:A27"
+                range="Sheet1!A4:A29"
             ).execute()
             range_values = result.get('values', [])
 
             # Ensure the list is the correct length
-            while len(range_values) < 24:  # 24 rows from A4 to A27
+            while len(range_values) < 26:  # 26 rows from A4 to A29
                 range_values.append([None])
 
             # Step 4: Flatten the range_values (2D array) into a list and enumerate rows
