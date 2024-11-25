@@ -32,13 +32,21 @@ def read_cell(spreadsheet_id, sheet_name, cell_range):
 # Write data to Google Sheets
 def write_to_google_sheets(data, spreadsheet_id, sheet_name, start_cell):
     service = connect_to_google_sheets()
-    body = {"values": [[data]] if isinstance(data, str) else data}  # Single value or 2D array
+    # Ensure data is always a 2D list
+    if isinstance(data, str) or isinstance(data, int):  # Single value
+        body = {"values": [[data]]}
+    elif isinstance(data, list):  # Already a list
+        body = {"values": [data] if isinstance(data[0], list) else [[val] for val in data]}
+    else:
+        raise ValueError("Data format is invalid. Must be a string, integer, or list.")
+
     service.values().update(
         spreadsheetId=spreadsheet_id,
         range=f"{sheet_name}!{start_cell}",
         valueInputOption="RAW",
         body=body
     ).execute()
+
 
 # Read the local Excel file
 def read_excel_file(file_path):
@@ -135,6 +143,7 @@ def fetch_lot_details(lot_code):
 def monitor_and_update():
     print("Scanning for 12-digit UPCs starting with '8' in A4:A27...")
     previous_values = {}
+    sku_counts = {}  # Dictionary to track SKUs and their counts
 
     while True:
         try:
@@ -156,7 +165,7 @@ def monitor_and_update():
                 cell_address = f"A{i}"
 
                 # Check if the value has changed and is valid
-                if cell_value and cell_address not in previous_values or previous_values[cell_address] != cell_value:
+                if cell_value and (cell_address not in previous_values or previous_values[cell_address] != cell_value):
                     previous_values[cell_address] = cell_value
                     value_str = str(cell_value).strip()
 
@@ -170,35 +179,52 @@ def monitor_and_update():
                             detected_sku = SKUMAP[value_str]
                             print(f"Full SKU: {detected_sku}")
 
-                            # Write Full SKU back to the cell
-                            write_to_google_sheets(detected_sku, SPREADSHEET_ID, SHEET_NAME, cell_address)
+                            if detected_sku in sku_counts:
+                                # Increment the count for the existing SKU
+                                sku_counts[detected_sku]["count"] += 1  # Increment the count value
+                                count_cell = sku_counts[detected_sku]["count_cell"]
+                                write_to_google_sheets(sku_counts[detected_sku]["count"], SPREADSHEET_ID, SHEET_NAME, count_cell)
 
-                            # Fetch lot codes for the detected SKU
-                            lot_codes = fetch_lot_codes(detected_sku)
-                            print(f"Lot Codes: {lot_codes}")
+                                # Clear the duplicate cell
+                                write_to_google_sheets("", SPREADSHEET_ID, SHEET_NAME, cell_address)
+                                print(f"Incremented count for SKU {detected_sku}. Cleared {cell_address}.")
 
-                            if lot_codes:
-                                selected_lot_code = show_lot_code_popup(lot_codes)
-                                print(f"Selected Lot Code: {selected_lot_code}")
-                                if selected_lot_code:
-                                    # Write the selected lot code to C{i} (aligned with the detected UPC)
-                                    target_lot_cell = f"C{i}"
-                                    write_to_google_sheets(selected_lot_code, SPREADSHEET_ID, SHEET_NAME, target_lot_cell)
-                                    print(f"Selected Lot Code {selected_lot_code} written to {target_lot_cell}.")
+                            else:
+                                # Write Full SKU back to the cell
+                                write_to_google_sheets(detected_sku, SPREADSHEET_ID, SHEET_NAME, cell_address)
 
-                                    # Fetch and write expiration date details
-                                    expiration_date = fetch_lot_details(selected_lot_code)
-                                    if expiration_date is not None:
-                                        write_to_google_sheets(expiration_date, SPREADSHEET_ID, SHEET_NAME, f"E{i}")
-                                        print(f"Details for Lot Code {selected_lot_code} written to E{i}.")
-                                    else:
-                                        write_to_google_sheets("Details Not Found", SPREADSHEET_ID, SHEET_NAME, f"E{i}")
+                                # Fetch lot codes for the detected SKU
+                                lot_codes = fetch_lot_codes(detected_sku)
+                                print(f"Lot Codes: {lot_codes}")
 
-                            # Write "EA" to column F if the SKU does not start with "WH-"
-                            if not detected_sku.startswith("WH-"):
-                                target_ea_cell = f"F{i}"  # Corresponds to the F column of the current row
-                                write_to_google_sheets("EA", SPREADSHEET_ID, SHEET_NAME, target_ea_cell)
-                                print(f"'EA' written to {target_ea_cell} for SKU {detected_sku}.")
+                                if lot_codes:
+                                    selected_lot_code = show_lot_code_popup(lot_codes)
+                                    print(f"Selected Lot Code: {selected_lot_code}")
+                                    if selected_lot_code:
+                                        # Write the selected lot code to C{i} (aligned with the detected UPC)
+                                        target_lot_cell = f"C{i}"
+                                        write_to_google_sheets(selected_lot_code, SPREADSHEET_ID, SHEET_NAME, target_lot_cell)
+                                        print(f"Selected Lot Code {selected_lot_code} written to {target_lot_cell}.")
+
+                                        # Fetch and write expiration date details
+                                        expiration_date = fetch_lot_details(selected_lot_code)
+                                        if expiration_date is not None:
+                                            write_to_google_sheets(expiration_date, SPREADSHEET_ID, SHEET_NAME, f"E{i}")
+                                            print(f"Details for Lot Code {selected_lot_code} written to E{i}.")
+                                        else:
+                                            write_to_google_sheets("Details Not Found", SPREADSHEET_ID, SHEET_NAME, f"E{i}")
+
+                                        # Add the new SKU to sku_counts
+                                        sku_counts[detected_sku] = {
+                                            "count": 1,
+                                            "count_cell": f"G{i}"
+                                        }
+
+                                        # Write "EA" to column F if the SKU does not start with "WH-"
+                                        if not detected_sku.startswith("WH-"):
+                                            target_ea_cell = f"F{i}"  # Corresponds to the F column of the current row
+                                            write_to_google_sheets("EA", SPREADSHEET_ID, SHEET_NAME, target_ea_cell)
+                                            print(f"'EA' written to {target_ea_cell} for SKU {detected_sku}.")
 
         except Exception as e:
             print(f"Error in monitoring and updating: {e}")
