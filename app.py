@@ -131,6 +131,7 @@ def fetch_lot_details(lot_code):
     return expiration_date
 
 
+
 def monitor_and_update():
     print("Scanning for 12-digit UPCs starting with '8' in A4:A27...")
     previous_values = {}
@@ -146,7 +147,6 @@ def monitor_and_update():
             range_values = result.get('values', [])
 
             # Ensure the list is the correct length
-            # Fill missing rows with None to avoid index errors
             while len(range_values) < 24:  # 24 rows from A4 to A27
                 range_values.append([None])
 
@@ -189,21 +189,23 @@ def monitor_and_update():
                                     # Fetch and write expiration date details
                                     expiration_date = fetch_lot_details(selected_lot_code)
                                     if expiration_date is not None:
-                                        if isinstance(expiration_date, pd.Timestamp):  # Format as YYYY-MM-DD
-                                            expiration_date = expiration_date.strftime('%Y-%m-%d')
-                                        elif isinstance(expiration_date, str) and ' ' in expiration_date:
-                                            expiration_date = expiration_date.split(' ')[0]
-
                                         write_to_google_sheets(expiration_date, SPREADSHEET_ID, SHEET_NAME, f"E{i}")
                                         print(f"Details for Lot Code {selected_lot_code} written to E{i}.")
                                     else:
                                         write_to_google_sheets("Details Not Found", SPREADSHEET_ID, SHEET_NAME, f"E{i}")
+
+                            # Write "EA" to column F if the SKU does not start with "WH-"
+                            if not detected_sku.startswith("WH-"):
+                                target_ea_cell = f"F{i}"  # Corresponds to the F column of the current row
+                                write_to_google_sheets("EA", SPREADSHEET_ID, SHEET_NAME, target_ea_cell)
+                                print(f"'EA' written to {target_ea_cell} for SKU {detected_sku}.")
 
         except Exception as e:
             print(f"Error in monitoring and updating: {e}")
 
         # Wait before checking again
         time.sleep(5)
+
 
 
 if __name__ == "__main__":
