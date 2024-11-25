@@ -1,0 +1,7 @@
+WH lot code data map
+scan in place functionality for both same sku and next sku
+scan all three rows
+initial pop up for SO number? or shorten cell length
+ask about another excel sheet, specifically for WH boxes
+clear sheet after Print
+Print to actual printer WITH SO name
