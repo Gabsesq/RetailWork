@@ -222,6 +222,9 @@ def monitor_and_update():
                                             "count_cell": f"G{i}"
                                         }
 
+                                        # Write the initial count to the Google Sheet
+                                        write_to_google_sheets(1, SPREADSHEET_ID, SHEET_NAME, f"G{i}")
+                                        print(f"Initial count '1' written to G{i} for SKU {detected_sku}.")
                                         # Write "EA" to column F if the SKU does not start with "WH-"
                                         if not detected_sku.startswith("WH-"):
                                             target_ea_cell = f"F{i}"  # Corresponds to the F column of the current row
