@@ -144,13 +144,14 @@ def monitor_and_update():
     print("Scanning for 12-digit UPCs starting with '8' in A4:A27...")
     previous_values = {}
     sku_counts = {}  # Dictionary to track SKUs and their counts
+    cleared_cells = set()  # Track cleared cells for re-evaluation
 
     while True:
         try:
             # Step 1: Read the range A4:A27
             service = connect_to_google_sheets()
             result = service.values().get(
-                spreadsheetId=SPREADSHEET_ID, 
+                spreadsheetId=SPREADSHEET_ID,
                 range="Sheet1!A4:A27"
             ).execute()
             range_values = result.get('values', [])
@@ -164,8 +165,8 @@ def monitor_and_update():
                 cell_value = row[0] if row else None
                 cell_address = f"A{i}"
 
-                # Check if the value has changed and is valid
-                if cell_value and (cell_address not in previous_values or previous_values[cell_address] != cell_value):
+                # Check if the value has changed or if it is in the cleared_cells set
+                if cell_value and (cell_address not in previous_values or previous_values[cell_address] != cell_value or cell_address in cleared_cells):
                     previous_values[cell_address] = cell_value
                     value_str = str(cell_value).strip()
 
@@ -181,12 +182,13 @@ def monitor_and_update():
 
                             if detected_sku in sku_counts:
                                 # Increment the count for the existing SKU
-                                sku_counts[detected_sku]["count"] += 1  # Increment the count value
+                                sku_counts[detected_sku]["count"] += 1
                                 count_cell = sku_counts[detected_sku]["count_cell"]
                                 write_to_google_sheets(sku_counts[detected_sku]["count"], SPREADSHEET_ID, SHEET_NAME, count_cell)
 
-                                # Clear the duplicate cell
+                                # Clear the duplicate cell and add it to cleared_cells
                                 write_to_google_sheets("", SPREADSHEET_ID, SHEET_NAME, cell_address)
+                                cleared_cells.add(cell_address)  # Add to cleared cells set
                                 print(f"Incremented count for SKU {detected_sku}. Cleared {cell_address}.")
 
                             else:
@@ -231,6 +233,7 @@ def monitor_and_update():
 
         # Wait before checking again
         time.sleep(5)
+
 
 
 
