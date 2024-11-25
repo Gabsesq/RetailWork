@@ -6,32 +6,38 @@ from ExcelSKU import EXCEL_SKU  # Import the Excel SKU mapping
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from tkinkterHelper import show_lot_code_popup
+import win32print
+import win32api
+from io import BytesIO
+from googleapiclient.http import MediaIoBaseDownload
 
 # File path to the local Excel file
 EXCEL_FILE_PATH = r"Current Lot Code Data 2.xlsx"
+PRINTER_NAME = "Brother MFC-L8900CDW series"
 
 # Google Sheets setup
 SPREADSHEET_ID = "1MYUwuPTPNY7P_e1sBvzV1m-VDDlJq6mnrLy3tGM1Duw"
 SHEET_NAME = "Sheet1"
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
 CREDENTIALS_FILE = "service_account.json"
 
-# Authenticate and connect to Google Sheets
-def connect_to_google_sheets():
+def connect_to_google_services():
     creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=SCOPES)
-    return build('sheets', 'v4', credentials=creds).spreadsheets()
+    sheets_service = build('sheets', 'v4', credentials=creds)
+    drive_service = build('drive', 'v3', credentials=creds)
+    return sheets_service, drive_service
 
-# Read a specific cell value from Google Sheets
+
 def read_cell(spreadsheet_id, sheet_name, cell_range):
-    service = connect_to_google_sheets()
+    sheets_service, _ = connect_to_google_services()  # Extract only sheets_service
     range_name = f"{sheet_name}!{cell_range}"
-    result = service.values().get(spreadsheetId=spreadsheet_id, range=range_name).execute()
+    result = sheets_service.spreadsheets().values().get(spreadsheetId=spreadsheet_id, range=range_name).execute()
     values = result.get('values', [])
     return str(values[0][0]).strip() if values else None
 
-# Write data to Google Sheets
+
 def write_to_google_sheets(data, spreadsheet_id, sheet_name, start_cell):
-    service = connect_to_google_sheets()
+    sheets_service, _ = connect_to_google_services()  # Extract only sheets_service
     # Ensure data is always a 2D list
     if isinstance(data, str) or isinstance(data, int):  # Single value
         body = {"values": [[data]]}
@@ -40,12 +46,13 @@ def write_to_google_sheets(data, spreadsheet_id, sheet_name, start_cell):
     else:
         raise ValueError("Data format is invalid. Must be a string, integer, or list.")
 
-    service.values().update(
+    sheets_service.spreadsheets().values().update(
         spreadsheetId=spreadsheet_id,
         range=f"{sheet_name}!{start_cell}",
         valueInputOption="RAW",
         body=body
     ).execute()
+
 
 
 # Read the local Excel file
@@ -138,19 +145,66 @@ def fetch_lot_details(lot_code):
 
     return expiration_date
 
+import win32print
+import win32api
+from io import BytesIO
+
+PRINTER_NAME = "Brother MFC-L8900CDW series"  # Replace with your printer name
+
+def print_google_sheet():
+    try:
+        sheets_service, drive_service = connect_to_google_services()
+        file_id = SPREADSHEET_ID  # Google Sheet's ID
+        mime_type = "application/pdf"
+        
+        # Export the Google Sheet as a PDF using the Drive API
+        request = drive_service.files().export(fileId=file_id, mimeType=mime_type)
+        file_stream = BytesIO()
+        downloader = MediaIoBaseDownload(file_stream, request)
+        
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+            print(f"Download Progress: {int(status.progress() * 100)}%")
+        
+        # Save the PDF locally
+        pdf_path = os.path.join(os.getcwd(), "sheet_to_print.pdf")
+        with open(pdf_path, "wb") as pdf_file:
+            pdf_file.write(file_stream.getvalue())
+        print(f"PDF saved at {pdf_path}")
+        
+        # Print the PDF using the default printer
+        win32api.ShellExecute(0, "print", pdf_path, None, ".", 0)
+        print("Printing initiated.")
+    except Exception as e:
+        print(f"Error in printing Google Sheet: {e}")
+
 
 
 def monitor_and_update():
-    print("Scanning for 12-digit UPCs starting with '8' in A4:A27...")
+    print("Monitoring Google Sheet for updates...")
     previous_values = {}
     sku_counts = {}  # Dictionary to track SKUs and their counts
     cleared_cells = set()  # Track cleared cells for re-evaluation
 
     while True:
         try:
-            # Step 1: Read the range A4:A27
-            service = connect_to_google_sheets()
-            result = service.values().get(
+            # Connect to Google Sheets
+            sheets_service, _ = connect_to_google_services()  # Extract sheets_service
+            
+            # Step 2: Check for 'P' in A28 for printing
+            print_trigger = read_cell(SPREADSHEET_ID, SHEET_NAME, "A28")
+            if print_trigger and print_trigger.upper() == "P":
+                print("Print trigger detected in A28. Starting print process...")
+                print_google_sheet()
+                
+                # Clear the 'P' after printing to prevent repeated triggers
+                write_to_google_sheets("", SPREADSHEET_ID, SHEET_NAME, "A28")
+                print("Print trigger cleared.")
+            
+            # Step 3: Read the range A4:A27
+            print("Scanning for 12-digit UPCs starting with '8' in A4:A27...")
+            result = sheets_service.spreadsheets().values().get(
                 spreadsheetId=SPREADSHEET_ID,
                 range="Sheet1!A4:A27"
             ).execute()
@@ -160,7 +214,7 @@ def monitor_and_update():
             while len(range_values) < 24:  # 24 rows from A4 to A27
                 range_values.append([None])
 
-            # Step 2: Flatten the range_values (2D array) into a list and enumerate rows
+            # Step 4: Flatten the range_values (2D array) into a list and enumerate rows
             for i, row in enumerate(range_values, start=4):  # Start at A4
                 cell_value = row[0] if row else None
                 cell_address = f"A{i}"
@@ -230,7 +284,6 @@ def monitor_and_update():
                                             target_ea_cell = f"F{i}"  # Corresponds to the F column of the current row
                                             write_to_google_sheets("EA", SPREADSHEET_ID, SHEET_NAME, target_ea_cell)
                                             print(f"'EA' written to {target_ea_cell} for SKU {detected_sku}.")
-
         except Exception as e:
             print(f"Error in monitoring and updating: {e}")
 
