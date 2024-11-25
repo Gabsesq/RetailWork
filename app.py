@@ -125,82 +125,79 @@ def fetch_lot_details(lot_code):
     return expiration_date
 
 def monitor_and_update():
-    print("Waiting for UPC in cell A4...")
-    previous_value = None
+    print("Scanning for 12-digit UPCs starting with '8' in A4:A27...")
+    previous_values = {}
 
     while True:
         try:
-            # Step 1: Read cell A4
-            value = read_cell(SPREADSHEET_ID, SHEET_NAME, "A4")
-            print(f"Detected Value in A4: {value}")
+            # Step 1: Read the range A4:A27
+            service = connect_to_google_sheets()
+            result = service.values().get(
+                spreadsheetId=SPREADSHEET_ID, 
+                range="Sheet1!A4:A27"
+            ).execute()
+            range_values = result.get('values', [])
 
-            # Step 2: Process if value has changed
-            if value and value != previous_value:
-                previous_value = value
-                value_str = str(value).strip()
+            # Ensure the list is the correct length
+            # Fill missing rows with None to avoid index errors
+            while len(range_values) < 24:  # 24 rows from A4 to A27
+                range_values.append([None])
 
-                # Check if value is in SKUMAP
-                if value_str in SKUMAP.keys():
-                    print(f"Detected UPC: {value_str}")
-                    detected_sku = SKUMAP[value_str]
-                    print(f"Full SKU: {detected_sku}")
+            # Step 2: Flatten the range_values (2D array) into a list and enumerate rows
+            for i, row in enumerate(range_values, start=4):  # Start at A4
+                cell_value = row[0] if row else None
+                cell_address = f"A{i}"
 
-                    # Write Full SKU back to A4
-                    write_to_google_sheets(detected_sku, SPREADSHEET_ID, SHEET_NAME, "A4")
+                # Check if the value has changed and is valid
+                if cell_value and cell_address not in previous_values or previous_values[cell_address] != cell_value:
+                    previous_values[cell_address] = cell_value
+                    value_str = str(cell_value).strip()
 
-                    # Fetch lot codes for the detected SKU
-                    lot_codes = fetch_lot_codes(detected_sku)
-                    print(f"Lot Codes: {lot_codes}")
+                    # Check if the value is a valid 12-digit UPC starting with '8'
+                    if len(value_str) == 12 and value_str.isdigit() and value_str.startswith('8'):
+                        print(f"Detected valid UPC '{value_str}' in {cell_address}.")
 
-                    # Write lot codes to C4
-                    # Instead of writing a single string, write the list as rows
-                    # Call the Tkinter popup to let the user select a lot code
-                if lot_codes:
-                    selected_lot_code = show_lot_code_popup(lot_codes)
-                    print(f"Selected Lot Code: {selected_lot_code}")
-                    if selected_lot_code:
-                        # Write the selected lot code to C4
-                        write_to_google_sheets(selected_lot_code, SPREADSHEET_ID, SHEET_NAME, "C4")
-                        print(f"Selected Lot Code {selected_lot_code} written to C4.")
+                        # Check if value is in SKUMAP
+                        if value_str in SKUMAP.keys():
+                            print(f"Detected UPC: {value_str}")
+                            detected_sku = SKUMAP[value_str]
+                            print(f"Full SKU: {detected_sku}")
 
-                        # Fetch and write expiration date details
-                        expiration_date = fetch_lot_details(selected_lot_code)
-                        if expiration_date is not None:
-                            # Ensure only the date part is extracted
-                            if isinstance(expiration_date, pd.Timestamp):  # If it's a Pandas Timestamp
-                                expiration_date = expiration_date.strftime('%Y-%m-%d')  # Format as YYYY-MM-DD
-                            elif isinstance(expiration_date, str) and ' ' in expiration_date:  # If it's a string with time
-                                expiration_date = expiration_date.split(' ')[0]  # Keep only the date part
+                            # Write Full SKU back to the cell
+                            write_to_google_sheets(detected_sku, SPREADSHEET_ID, SHEET_NAME, cell_address)
 
-                            write_to_google_sheets(expiration_date, SPREADSHEET_ID, SHEET_NAME, "E4")
-                            print(f"Details for Lot Code {selected_lot_code} written to E4.")
+                            # Fetch lot codes for the detected SKU
+                            lot_codes = fetch_lot_codes(detected_sku)
+                            print(f"Lot Codes: {lot_codes}")
 
-                        else:
-                            write_to_google_sheets("Details Not Found", SPREADSHEET_ID, SHEET_NAME, "E4")
-                            write_to_google_sheets("Details Not Found", SPREADSHEET_ID, SHEET_NAME, "F4")
-                    else:
-                        print("No lot code selected.")
+                            if lot_codes:
+                                selected_lot_code = show_lot_code_popup(lot_codes)
+                                print(f"Selected Lot Code: {selected_lot_code}")
+                                if selected_lot_code:
+                                    # Write the selected lot code to C{i} (aligned with the detected UPC)
+                                    target_lot_cell = f"C{i}"
+                                    write_to_google_sheets(selected_lot_code, SPREADSHEET_ID, SHEET_NAME, target_lot_cell)
+                                    print(f"Selected Lot Code {selected_lot_code} written to {target_lot_cell}.")
 
+                                    # Fetch and write expiration date details
+                                    expiration_date = fetch_lot_details(selected_lot_code)
+                                    if expiration_date is not None:
+                                        if isinstance(expiration_date, pd.Timestamp):  # Format as YYYY-MM-DD
+                                            expiration_date = expiration_date.strftime('%Y-%m-%d')
+                                        elif isinstance(expiration_date, str) and ' ' in expiration_date:
+                                            expiration_date = expiration_date.split(' ')[0]
 
-            # Step 3: Monitor D4 for lot code selection
-            selected_lot_code = read_cell(SPREADSHEET_ID, SHEET_NAME, "C4")
-            print(f"Detected Lot Code in C4: {selected_lot_code}")
-
-            if selected_lot_code:
-                expiration_date = fetch_lot_details(selected_lot_code)
-                if expiration_date is not None:
-                    expiration_date = str(expiration_date)  # Convert Timestamp to string
-                    write_to_google_sheets(expiration_date, SPREADSHEET_ID, SHEET_NAME, "E4")
-                    print(f"Details for Lot Code {selected_lot_code} written to E4 and F4.")
-                else:
-                    write_to_google_sheets("Details Not Found", SPREADSHEET_ID, SHEET_NAME, "E4")
-                    write_to_google_sheets("Details Not Found", SPREADSHEET_ID, SHEET_NAME, "F4")
+                                        write_to_google_sheets(expiration_date, SPREADSHEET_ID, SHEET_NAME, f"E{i}")
+                                        print(f"Details for Lot Code {selected_lot_code} written to E{i}.")
+                                    else:
+                                        write_to_google_sheets("Details Not Found", SPREADSHEET_ID, SHEET_NAME, f"E{i}")
 
         except Exception as e:
             print(f"Error in monitoring and updating: {e}")
 
         # Wait before checking again
         time.sleep(5)
+
 
 if __name__ == "__main__":
     monitor_and_update()
