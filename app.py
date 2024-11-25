@@ -111,18 +111,25 @@ def fetch_lot_details(lot_code):
     lot_column = next((col for col in excel_data.columns if "Lot" in col), None)
     if not lot_column:
         print("No Lot # column found in the Excel file.")
-        return None, None
+        return None
 
     # Locate the matching row
     matching_row = excel_data.loc[excel_data[lot_column] == int(lot_code)]
     if matching_row.empty:
         print(f"Lot code '{lot_code}' not found in the Excel file.")
-        return None, None
+        return None
 
-    # Fetch expiration date and inventory count
+    # Fetch expiration date
     expiration_date = matching_row["BB Date"].iloc[0] if "BB Date" in matching_row.columns else None
 
+    # Ensure only the date part is extracted
+    if isinstance(expiration_date, pd.Timestamp):  # If it's a Pandas Timestamp
+        expiration_date = expiration_date.strftime('%Y-%m-%d')  # Format as YYYY-MM-DD
+    elif isinstance(expiration_date, str) and ' ' in expiration_date:  # If it's a string with time
+        expiration_date = expiration_date.split(' ')[0]  # Keep only the date part
+
     return expiration_date
+
 
 def monitor_and_update():
     print("Scanning for 12-digit UPCs starting with '8' in A4:A27...")
