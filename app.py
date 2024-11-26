@@ -62,38 +62,31 @@ def read_excel_file(file_path):
     return pd.read_excel(file_path)
 
 # Fetch lot codes from Excel based on the Excel SKU
+# Fetch lot codes from Excel based on the SKU
 def fetch_lot_codes(sku):
     # Read the Excel file
     excel_data = read_excel_file(EXCEL_FILE_PATH)
     
-    # Map Full SKU to Excel SKU
-    excel_sku = EXCEL_SKU.get(sku)
-    if not excel_sku:
-        print(f"SKU '{sku}' not found in ExcelSKU mapping.")
-        return []
-
-    print(f"Searching for Excel SKU: '{excel_sku}'")
-
+    # Normalize the input SKU to lowercase for comparison
+    sku_lower = sku.lower()
+    
     # Locate the SKU column
     sku_column = next((col for col in excel_data.columns if "SKU" in col), None)
     if not sku_column:
         print("No SKU column found in the Excel file.")
         return []
 
-    # Debug: Print all SKU values in the column
-    print(f"SKU column values:\n{excel_data[sku_column].dropna().tolist()}")
-
-    # Clean and normalize SKU column for comparison
-    excel_data[sku_column] = excel_data[sku_column].astype(str).str.strip()
+    # Normalize the SKU column for comparison
+    excel_data[sku_column] = excel_data[sku_column].astype(str).str.strip().str.lower()
 
     # Find the row with the matching SKU
-    matching_row = excel_data.loc[excel_data[sku_column] == excel_sku]
+    matching_row = excel_data.loc[excel_data[sku_column] == sku_lower]
     if matching_row.empty:
-        print(f"Excel SKU '{excel_sku}' not found in the Excel file.")
+        print(f"SKU '{sku}' not found in the Excel file.")
         return []
 
     # Debug: Print the matching row
-    print(f"Matching row for '{excel_sku}':\n{matching_row}")
+    print(f"Matching row for '{sku}':\n{matching_row}")
 
     # Get the cell to the right of the matching SKU
     row_index = matching_row.index[0]
@@ -107,14 +100,14 @@ def fetch_lot_codes(sku):
         # Debug: Print the lot value being checked
         print(f"Row: {row_index}, Lot Value: {lot_value} (Type: {type(lot_value)})")
 
-        if isinstance(lot_value, str) and lot_value.strip() == "Total":
+        if isinstance(lot_value, str) and lot_value.strip().lower() == "total":
             print("Reached 'Total'. Stopping the scan.")
             break
         if pd.notna(lot_value):
             lot_codes.append(str(lot_value).strip())
         row_index += 1
 
-    print(f"Lot codes for Excel SKU '{excel_sku}': {lot_codes}")
+    print(f"Lot codes for SKU '{sku}': {lot_codes}")
     return lot_codes
 
  # Fetch expiration date and inventory for the selected lot code
