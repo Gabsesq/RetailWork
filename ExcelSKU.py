@@ -22,7 +22,7 @@ EXCEL_SKU = {
     "200-DR-HO": "200-DR-HO",
     "500-DR-HO": "500-DR-HO",
     "750-DR-HO": "750-DR-HO",
-    "150-Mini-Stress-HO": "150-SR-MINI",
+    "150-Mini-Stress-HO": "150-MINI-STRESS-HO",
     "300-SR-HO": "300-SR-HO",
     "600-SR-HO": "600-SR-HO",
     "300-HJR-HO": "300-HJR-HO",

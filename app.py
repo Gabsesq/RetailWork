@@ -2,7 +2,6 @@ import time
 import pandas as pd
 import os
 from SKU import SKUMAP  # Import the mapping
-from ExcelSKU import EXCEL_SKU  # Import the Excel SKU mapping
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from tkinkterHelper import show_lot_code_popup
@@ -14,7 +13,7 @@ from googleapiclient.http import MediaIoBaseDownload
 # File path to the local Excel file
 EXCEL_FILE_PATH = r"Current Lot Code Data 2.xlsx"
 PRINTER_NAME = "Brother MFC-L8900CDW series"
-
+excel_data = pd.read_excel(EXCEL_FILE_PATH)
 # Google Sheets setup
 SPREADSHEET_ID = "1MYUwuPTPNY7P_e1sBvzV1m-VDDlJq6mnrLy3tGM1Duw"
 SHEET_NAME = "Sheet1"
@@ -62,7 +61,6 @@ def read_excel_file(file_path):
     return pd.read_excel(file_path)
 
 # Fetch lot codes from Excel based on the Excel SKU
-# Fetch lot codes from Excel based on the SKU
 def fetch_lot_codes(sku):
     # Read the Excel file
     excel_data = read_excel_file(EXCEL_FILE_PATH)
@@ -70,73 +68,93 @@ def fetch_lot_codes(sku):
     # Normalize the input SKU to lowercase for comparison
     sku_lower = sku.lower()
     
-    # Locate the SKU column
-    sku_column = next((col for col in excel_data.columns if "SKU" in col), None)
-    if not sku_column:
-        print("No SKU column found in the Excel file.")
-        return []
-
-    # Normalize the SKU column for comparison
-    excel_data[sku_column] = excel_data[sku_column].astype(str).str.strip().str.lower()
-
-    # Find the row with the matching SKU
-    matching_row = excel_data.loc[excel_data[sku_column] == sku_lower]
-    if matching_row.empty:
-        print(f"SKU '{sku}' not found in the Excel file.")
-        return []
-
-    # Debug: Print the matching row
-    print(f"Matching row for '{sku}':\n{matching_row}")
-
-    # Get the cell to the right of the matching SKU
-    row_index = matching_row.index[0]
-    lot_column_index = excel_data.columns.get_loc(sku_column) + 1
+    # List of column indices to search for SKUs
+    sku_columns = [0, 7, 14, 21]  # A, H, O, V
+    
+    # Initialize an empty list for lot codes
     lot_codes = []
+    
+    # Iterate over each specified column
+    for column_index in sku_columns:
+        if column_index >= len(excel_data.columns):
+            print(f"Column index {column_index} is out of range.")
+            continue
 
-    # Traverse downward until encountering "Total"
-    while row_index < len(excel_data):
-        lot_value = excel_data.iloc[row_index, lot_column_index]
+        # Normalize the SKU column for comparison
+        excel_data.iloc[:, column_index] = excel_data.iloc[:, column_index].astype(str).str.strip().str.lower()
 
-        # Debug: Print the lot value being checked
-        print(f"Row: {row_index}, Lot Value: {lot_value} (Type: {type(lot_value)})")
+        # Find the row with the matching SKU
+        matching_row = excel_data.loc[excel_data.iloc[:, column_index] == sku_lower]
+        if matching_row.empty:
+            print(f"SKU '{sku}' not found in column index {column_index}.")
+            continue
 
-        if isinstance(lot_value, str) and lot_value.strip().lower() == "total":
-            print("Reached 'Total'. Stopping the scan.")
-            break
-        if pd.notna(lot_value):
-            lot_codes.append(str(lot_value).strip())
-        row_index += 1
+        # Debug: Print the matching row
+        print(f"Matching row for '{sku}' in column index {column_index}:\n{matching_row}")
+
+        # Get the row index for the matching SKU
+        row_index = matching_row.index[0]
+        lot_column_index = column_index + 1
+
+        # Traverse downward until encountering "Total"
+        while row_index < len(excel_data):
+            lot_value = excel_data.iloc[row_index, lot_column_index]
+
+            # Debug: Print the lot value being checked
+            print(f"Row: {row_index}, Lot Value: {lot_value} (Type: {type(lot_value)})")
+
+            if isinstance(lot_value, str) and lot_value.strip().lower() == "total":
+                print("Reached 'Total'. Stopping the scan.")
+                break
+            if pd.notna(lot_value):
+                lot_codes.append(str(lot_value).strip())
+            row_index += 1
 
     print(f"Lot codes for SKU '{sku}': {lot_codes}")
     return lot_codes
 
- # Fetch expiration date and inventory for the selected lot code
 def fetch_lot_details(lot_code):
     # Read the Excel file
     excel_data = pd.read_excel(EXCEL_FILE_PATH)
 
-    # Locate the Lot # column
-    lot_column = next((col for col in excel_data.columns if "Lot" in col), None)
-    if not lot_column:
-        print("No Lot # column found in the Excel file.")
-        return None
+    # Ensure all columns are treated as strings for comparison
+    excel_data = excel_data.applymap(lambda x: str(x).strip() if not pd.isna(x) else x)
 
-    # Locate the matching row
-    matching_row = excel_data.loc[excel_data[lot_column] == int(lot_code)]
-    if matching_row.empty:
-        print(f"Lot code '{lot_code}' not found in the Excel file.")
-        return None
+    # List of numeric indices for Lot # columns
+    lot_code_columns = [1, 8, 15, 22]  # Adjacent to A, H, O, V
 
-    # Fetch expiration date
-    expiration_date = matching_row["BB Date"].iloc[0] if "BB Date" in matching_row.columns else None
+    # Iterate over each column to locate the Lot #
+    for lot_column_index in lot_code_columns:
+        if lot_column_index >= len(excel_data.columns):
+            print(f"Column index {lot_column_index} is out of range.")
+            continue
 
-    # Ensure only the date part is extracted
-    if isinstance(expiration_date, pd.Timestamp):  # If it's a Pandas Timestamp
-        expiration_date = expiration_date.strftime('%Y-%m-%d')  # Format as YYYY-MM-DD
-    elif isinstance(expiration_date, str) and ' ' in expiration_date:  # If it's a string with time
-        expiration_date = expiration_date.split(' ')[0]  # Keep only the date part
+        # Locate the matching row for the lot code
+        matching_row = excel_data.loc[excel_data.iloc[:, lot_column_index] == lot_code]
+        if matching_row.empty:
+            continue
 
-    return expiration_date
+        # Fetch expiration date, 3 cells to the right of the lot column
+        expiration_date_column_index = lot_column_index + 3
+        if expiration_date_column_index >= len(excel_data.columns):
+            print(f"Column index {expiration_date_column_index} is out of range for expiration date.")
+            return None
+
+        # Try to fetch the expiration date
+        expiration_date = matching_row.iloc[0, expiration_date_column_index]
+
+        # Ensure only valid date values are returned
+        try:
+            expiration_date = pd.to_datetime(expiration_date).strftime('%Y-%m-%d')
+        except (ValueError, TypeError):
+            print(f"Invalid date format for Lot Code '{lot_code}' in column index {expiration_date_column_index}: {expiration_date}")
+            expiration_date = None
+
+        return expiration_date
+
+    print(f"Lot code '{lot_code}' not found in the Excel file.")
+    return None
+
 
 
 def print_pdf(file_path, printer_name):
@@ -313,7 +331,7 @@ def monitor_and_update():
             print(f"Error in monitoring and updating: {e}")
 
         # Wait before checking again
-        time.sleep(5)
+        time.sleep(1)
 
 
 
