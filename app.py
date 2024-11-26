@@ -20,6 +20,7 @@ SHEET_NAME = "Sheet1"
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
 CREDENTIALS_FILE = "service_account.json"
 
+
 def connect_to_google_services():
     creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=SCOPES)
     sheets_service = build('sheets', 'v4', credentials=creds)
@@ -28,11 +29,22 @@ def connect_to_google_services():
 
 
 def read_cell(spreadsheet_id, sheet_name, cell_range):
-    sheets_service, _ = connect_to_google_services()  # Extract only sheets_service
+    sheets_service, _ = connect_to_google_services()
     range_name = f"{sheet_name}!{cell_range}"
     result = sheets_service.spreadsheets().values().get(spreadsheetId=spreadsheet_id, range=range_name).execute()
     values = result.get('values', [])
-    return str(values[0][0]).strip() if values else None
+    return str(values[0][0]).strip().lower() if values else None  # Normalize here
+
+def preprocess_excel_data():
+    """
+    Pre-read and normalize all relevant Excel data columns once.
+    """
+    excel_data = read_excel_file(EXCEL_FILE_PATH)
+    normalized_data = {
+        "sku_columns": [excel_data.iloc[:, i].tolist() for i in [0, 7, 14, 21]],
+        "lot_code_columns": [excel_data.iloc[:, i].tolist() for i in [1, 8, 15, 22]],
+    }
+    return normalized_data
 
 
 def write_to_google_sheets(data, spreadsheet_id, sheet_name, start_cell):
@@ -54,63 +66,54 @@ def write_to_google_sheets(data, spreadsheet_id, sheet_name, start_cell):
 
 
 
-# Read the local Excel file
 def read_excel_file(file_path):
+    """
+    Read and normalize the Excel file once to reduce redundant processing.
+    """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"The file at {file_path} does not exist.")
-    return pd.read_excel(file_path)
+    
+    # Read the file
+    excel_data = pd.read_excel(file_path)
 
-# Fetch lot codes from Excel based on the Excel SKU
+    # Normalize relevant columns (convert all to string, strip whitespace, lowercase)
+    excel_data = excel_data.applymap(lambda x: str(x).strip().lower() if not pd.isna(x) else x)
+
+    return excel_data
+
+# Fetch lot codes after normalization
 def fetch_lot_codes(sku):
-    # Read the Excel file
+    """
+    Fetch lot codes for a given SKU after normalizing the data upfront.
+    """
     excel_data = read_excel_file(EXCEL_FILE_PATH)
-    
-    # Normalize the input SKU to lowercase for comparison
+
+    # Convert the SKU to lowercase for comparison
     sku_lower = sku.lower()
-    
-    # List of column indices to search for SKUs
-    sku_columns = [0, 7, 14, 21]  # A, H, O, V
-    
-    # Initialize an empty list for lot codes
+    sku_columns = [0, 7, 14, 21]  # Columns to search
+
     lot_codes = []
-    
-    # Iterate over each specified column
     for column_index in sku_columns:
         if column_index >= len(excel_data.columns):
-            print(f"Column index {column_index} is out of range.")
             continue
 
-        # Normalize the SKU column for comparison
-        excel_data.iloc[:, column_index] = excel_data.iloc[:, column_index].astype(str).str.strip().str.lower()
-
-        # Find the row with the matching SKU
+        # Locate the matching SKU
         matching_row = excel_data.loc[excel_data.iloc[:, column_index] == sku_lower]
         if matching_row.empty:
-            print(f"SKU '{sku}' not found in column index {column_index}.")
             continue
 
-        # Debug: Print the matching row
-        print(f"Matching row for '{sku}' in column index {column_index}:\n{matching_row}")
-
-        # Get the row index for the matching SKU
         row_index = matching_row.index[0]
         lot_column_index = column_index + 1
 
-        # Traverse downward until encountering "Total"
+        # Traverse downward to fetch lot codes
         while row_index < len(excel_data):
             lot_value = excel_data.iloc[row_index, lot_column_index]
-
-            # Debug: Print the lot value being checked
-            print(f"Row: {row_index}, Lot Value: {lot_value} (Type: {type(lot_value)})")
-
-            if isinstance(lot_value, str) and lot_value.strip().lower() == "total":
-                print("Reached 'Total'. Stopping the scan.")
+            if isinstance(lot_value, str) and lot_value == "total":
                 break
             if pd.notna(lot_value):
-                lot_codes.append(str(lot_value).strip())
+                lot_codes.append(lot_value.strip())
             row_index += 1
 
-    print(f"Lot codes for SKU '{sku}': {lot_codes}")
     return lot_codes
 
 def fetch_lot_details(lot_code):
@@ -229,6 +232,10 @@ def monitor_and_update():
     previous_values = {}
     sku_counts = {}  # Dictionary to track SKUs and their counts
     cleared_cells = set()  # Track cleared cells for re-evaluation
+
+    # Preprocess Excel data upfront
+    preprocessed_data = preprocess_excel_data()
+    sku_data = preprocessed_data["sku_columns"]  # SKU columns are preprocessed and stored
 
     while True:
         try:
