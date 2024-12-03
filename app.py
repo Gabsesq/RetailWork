@@ -41,29 +41,44 @@ def read_cell(spreadsheet_id, sheet_name, cell_range):
         return cell_value
     return None
 
+#Batch call instead of 1 at a time
+def write_to_google_sheets(batch_data, SPREADSHEET_ID):
+    """
+    Perform batch updates to Google Sheets.
+    :param batch_data: List of dictionaries, each containing 'range' and 'values'.
+    :param spreadsheet_id: The ID of the spreadsheet.
+    """
+    sheets_service, _ = connect_to_google_services()
 
-def write_to_google_sheets(data, spreadsheet_id, sheet_name, start_cell):
-    sheets_service, _ = connect_to_google_services()  # Extract only sheets_service
-    # Ensure data is always a 2D list
-    if isinstance(data, str) or isinstance(data, int):  # Single value
-        body = {"values": [[data]]}
-    elif isinstance(data, list):  # Already a list
-        body = {"values": [data] if isinstance(data[0], list) else [[val] for val in data]}
-    else:
-        raise ValueError("Data format is invalid. Must be a string, integer, or list.")
+    # Prepare the requests for batchUpdate
+    requests = []
+    for data in batch_data:
+        requests.append({
+            "updateCells": {
+                "range": {
+                    "sheetId": data["sheetId"],  # Use the appropriate sheet ID if necessary
+                    "startRowIndex": data["startRowIndex"],
+                    "endRowIndex": data["endRowIndex"],
+                    "startColumnIndex": data["startColumnIndex"],
+                    "endColumnIndex": data["endColumnIndex"]
+                },
+                "values": data["values"]
+            }
+        })
 
-    sheets_service.spreadsheets().values().update(
-        spreadsheetId=spreadsheet_id,
-        range=f"{sheet_name}!{start_cell}",
-        valueInputOption="RAW",
+    # Send the batch update request
+    body = {"requests": requests}
+    sheets_service.spreadsheets().batchUpdate(
+        spreadsheetId=SPREADSHEET_ID,
         body=body
     ).execute()
 
 def monitor_and_update():
     print("Monitoring Google Sheet for updates...")
     previous_values = {}
-    sku_counts = {}  # Dictionary to track SKUs and their counts
-    cleared_cells = set()  # Track cleared cells for re-evaluation
+    sku_counts = {}
+    cleared_cells = set()
+    batch_updates = []  # Collect updates for batch processing
 
     # Preprocess Excel data upfront
     preprocessed_data = preprocess_excel_data()
@@ -76,14 +91,17 @@ def monitor_and_update():
         try:
             # Step 1: Check for '1' in A30 for printing
             print_trigger = read_cell(SPREADSHEET_ID, SHEET_NAME, "A30")
-            if print_trigger and print_trigger.strip() == "1":  # Stripping any extra spaces
+            if print_trigger and print_trigger.strip() == "1":
                 print("Print trigger detected in A30. Starting print process...")
                 
                 # Call print_google_sheet with required arguments
                 print_google_sheet(sheets_service, drive_service, SPREADSHEET_ID, PRINTER_NAME)
                 
-                # Clear the 'P' after printing to prevent repeated triggers
-                write_to_google_sheets("", SPREADSHEET_ID, SHEET_NAME, "A30")
+                # Add clearing A30 to batch_updates
+                batch_updates.append({
+                    "range": f"{SHEET_NAME}!A30",
+                    "values": [[""]]
+                })
                 print("Print trigger cleared.")
 
             # Step 2: Read the range A4:A29 for scanning UPCs
@@ -94,14 +112,14 @@ def monitor_and_update():
             ).execute()
             range_values = result.get('values', [])
 
-            # Ensure the list is the correct length
-            while len(range_values) < 26:  # 26 rows from A4 to A29
-                range_values.append([None])
-
-            # Step 3: Process each cell in the range
-            for i, row in enumerate(range_values, start=4):  # Start at A4
+            # Iterate through rows in A4:A29
+            for i, row in enumerate(range_values, start=4):  # Start at row 4
                 cell_value = row[0] if row else None
                 cell_address = f"A{i}"
+
+                # Skip empty cells
+                if not cell_value:
+                    continue
 
                 # Check if the value has changed or needs re-evaluation
                 if cell_value and (cell_address not in previous_values or previous_values[cell_address] != cell_value or cell_address in cleared_cells):
@@ -118,19 +136,28 @@ def monitor_and_update():
                             detected_sku = SKUMAP[value_str]
                             print(f"Full SKU: {detected_sku}")
 
+                            # Increment the count for the existing SKU
                             if detected_sku in sku_counts:
-                                # Increment the count for the existing SKU
                                 sku_counts[detected_sku]["count"] += 1
                                 count_cell = sku_counts[detected_sku]["count_cell"]
-                                write_to_google_sheets(sku_counts[detected_sku]["count"], SPREADSHEET_ID, SHEET_NAME, count_cell)
+                                batch_updates.append({
+                                    "range": f"{SHEET_NAME}!{count_cell}",
+                                    "values": [[sku_counts[detected_sku]["count"]]]
+                                })
 
-                                # Clear the duplicate cell and add it to cleared_cells
-                                write_to_google_sheets("", SPREADSHEET_ID, SHEET_NAME, cell_address)
+                                # Add clearing the duplicate cell
+                                batch_updates.append({
+                                    "range": f"{SHEET_NAME}!{cell_address}",
+                                    "values": [[""]]
+                                })
                                 cleared_cells.add(cell_address)
                                 print(f"Incremented count for SKU {detected_sku}. Cleared {cell_address}.")
                             else:
-                                # Write Full SKU back to the cell
-                                write_to_google_sheets(detected_sku, SPREADSHEET_ID, SHEET_NAME, cell_address)
+                                # Add Full SKU to batch_updates
+                                batch_updates.append({
+                                    "range": f"{SHEET_NAME}!{cell_address}",
+                                    "values": [[detected_sku]]
+                                })
 
                                 # Fetch lot codes for the detected SKU
                                 lot_codes = fetch_lot_codes(detected_sku)
@@ -140,18 +167,26 @@ def monitor_and_update():
                                     selected_lot_code = show_lot_code_popup(lot_codes)
                                     print(f"Selected Lot Code: {selected_lot_code}")
                                     if selected_lot_code:
-                                        # Write the selected lot code to C{i}
+                                        # Add the selected lot code to batch_updates
                                         target_lot_cell = f"C{i}"
-                                        write_to_google_sheets(selected_lot_code, SPREADSHEET_ID, SHEET_NAME, target_lot_cell)
-                                        print(f"Selected Lot Code {selected_lot_code} written to {target_lot_cell}.")
+                                        batch_updates.append({
+                                            "range": f"{SHEET_NAME}!{target_lot_cell}",
+                                            "values": [[selected_lot_code]]
+                                        })
 
-                                        # Fetch and write expiration date details
+                                        # Fetch expiration date details
                                         expiration_date = fetch_lot_details(selected_lot_code)
                                         if expiration_date is not None:
-                                            write_to_google_sheets(expiration_date, SPREADSHEET_ID, SHEET_NAME, f"E{i}")
+                                            batch_updates.append({
+                                                "range": f"{SHEET_NAME}!E{i}",
+                                                "values": [[expiration_date]]
+                                            })
                                             print(f"Details for Lot Code {selected_lot_code} written to E{i}.")
                                         else:
-                                            write_to_google_sheets("Details Not Found", SPREADSHEET_ID, SHEET_NAME, f"E{i}")
+                                            batch_updates.append({
+                                                "range": f"{SHEET_NAME}!E{i}",
+                                                "values": [["Details Not Found"]]
+                                            })
 
                                         # Add the new SKU to sku_counts
                                         sku_counts[detected_sku] = {
@@ -159,20 +194,34 @@ def monitor_and_update():
                                             "count_cell": f"G{i}"
                                         }
 
-                                        # Write the initial count to the Google Sheet
-                                        write_to_google_sheets(1, SPREADSHEET_ID, SHEET_NAME, f"G{i}")
+                                        # Add the initial count to batch_updates
+                                        batch_updates.append({
+                                            "range": f"{SHEET_NAME}!G{i}",
+                                            "values": [[1]]
+                                        })
                                         print(f"Initial count '1' written to G{i} for SKU {detected_sku}.")
 
-                                        # Write "EA" to column F if the SKU does not start with "WH-"
+                                        # Add "EA" to column F if the SKU does not start with "WH-"
                                         if not detected_sku.startswith("WH-"):
                                             target_ea_cell = f"F{i}"
-                                            write_to_google_sheets("EA", SPREADSHEET_ID, SHEET_NAME, target_ea_cell)
+                                            batch_updates.append({
+                                                "range": f"{SHEET_NAME}!{target_ea_cell}",
+                                                "values": [["EA"]]
+                                            })
                                             print(f"'EA' written to {target_ea_cell} for SKU {detected_sku}.")
         except Exception as e:
             print(f"Error in monitoring and updating: {e}")
 
-        # Wait before checking again
-        time.sleep(1)
+        # Perform batch update if there are updates
+        if batch_updates:
+            sheets_service.spreadsheets().values().batchUpdate(
+                spreadsheetId=SPREADSHEET_ID,
+                body={"data": batch_updates, "valueInputOption": "RAW"}
+            ).execute()
+            batch_updates = []  # Clear batch_updates after processing
+
+        time.sleep(.1)
+
 
 if __name__ == "__main__":
     monitor_and_update()
