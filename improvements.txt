@@ -1,8 +1,10 @@
 scan in place functionality for both same sku and next sku
-scan all three rows
+    scan in place or scanner auto moves to next line
+    OR only really need to scan in cell A1
+        if scan in same cell now, scan turns blank
 initial pop up for SO number? or shorten cell length
 ask about another excel sheet, specifically for WH boxes
-clear sheet after Print
+clear sheet after Print, clear counts as well
 Print to actual printer WITH SO name
 manually overriding count updates saved count
 fix weird bb dates
