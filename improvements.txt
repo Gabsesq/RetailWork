@@ -8,3 +8,5 @@ clear sheet after Print, clear counts as well
 Print to actual printer WITH SO name
 manually overriding count updates saved count
 fix weird bb dates
+Lot code dates, make sure you're pulling oldest lot code
+Manually count numbers pull numbers from Quickbooks, make sure QTY is correct

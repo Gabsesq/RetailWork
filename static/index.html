@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retail</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        td.editable:hover {
+            background-color: #f9f9f9;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Retail Sheet Editor</h1>
+    <table id="excel-table"></table>
+    <button onclick="saveData()">Save Changes</button>
+
+    <script>
+        let tableData = [];
+
+        // Load data from the backend
+        async function loadData() {
+            const response = await fetch("http://127.0.0.1:5000/load");
+            const result = await response.json();
+
+            if (result.status === "success") {
+                tableData = result.data;
+                renderTable(tableData);
+            } else {
+                alert("Failed to load data: " + result.message);
+            }
+        }
+
+        function renderTable(data) {
+            const table = document.getElementById("excel-table");
+            table.innerHTML = ""; // Clear the table
+
+            data.forEach((row, rowIndex) => {
+                const tr = document.createElement("tr");
+
+                row.forEach((cell, colIndex) => {
+                    if (cell === null) {
+                        // Skip cells covered by a merged range
+                        return;
+                    }
+
+                    const td = document.createElement("td");
+
+                    if (typeof cell === "object" && (cell.colspan || cell.rowspan)) {
+                        // Handle merged cells
+                        if (cell.colspan) {
+                            td.setAttribute("colspan", cell.colspan);
+                        }
+                        if (cell.rowspan) {
+                            td.setAttribute("rowspan", cell.rowspan);
+                        }
+                        td.textContent = cell.value || ""; // Display the value of the merged cell
+
+                        // Allow editing inside merged cells
+                        td.className = "editable";
+                        td.contentEditable = true;
+
+                        // Update the tableData on edit
+                        td.addEventListener("input", () => {
+                            tableData[rowIndex][colIndex].value = td.textContent;
+                        });
+                    } else if (typeof cell === "object" && cell.value !== undefined) {
+                        // Handle regular cells stored as objects
+                        td.textContent = cell.value || ""; // Display the cell value
+                        td.className = "editable";
+                        td.contentEditable = true;
+
+                        // Update the tableData on edit
+                        td.addEventListener("input", () => {
+                            tableData[rowIndex][colIndex].value = td.textContent;
+                        });
+                    } else {
+                        // Handle plain values
+                        td.textContent = cell || ""; // Show empty cells as blank
+                        td.className = "editable";
+                        td.contentEditable = true;
+
+                        // Update the tableData on edit
+                        td.addEventListener("input", () => {
+                            tableData[rowIndex][colIndex] = td.textContent;
+                        });
+                    }
+
+                    // Apply styling for specific cells (e.g., A3 to G3)
+                    if (rowIndex === 2 && colIndex >= 0 && colIndex <= 6) {
+                        td.style.backgroundColor = "black";
+                        td.style.color = "white";
+                        td.style.fontWeight = "bold";
+                        td.style.fontSize = "20px";
+                        td.style.fontFamily = "Calibri, sans-serif";
+                    }
+
+                    tr.appendChild(td);
+                });
+
+                table.appendChild(tr);
+            });
+        }
+
+
+        // Save data back to the backend
+        async function saveData() {
+            const response = await fetch("http://127.0.0.1:5000/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ data: tableData }),
+            });
+
+            const result = await response.json();
+
+            if (result.status === "success") {
+                alert("Data saved successfully!");
+            } else {
+                alert("Failed to save data: " + result.message);
+            }
+        }
+
+        // Load the data when the page is loaded
+        window.onload = loadData;
+    </script>
+</body>
+</html>
