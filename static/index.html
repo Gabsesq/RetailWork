@@ -11,7 +11,7 @@
             margin-top: 20px;
         }
         th, td {
-            border: 1px solid #ddd;
+            border: 1px solid #000000;
             padding: 8px;
             text-align: center;
         }
@@ -22,6 +22,16 @@
             background-color: #f9f9f9;
             cursor: pointer;
         }
+            /* Set specific column widths */
+        td:nth-child(1), th:nth-child(1) { /* Column A */
+            width: 20%; /* Adjust as needed */
+        }
+
+        td:nth-child(2), th:nth-child(2) { /* Column B */
+            width: 20%; /* Adjust as needed */
+        }
+
+      
     </style>
 </head>
 <body>
@@ -99,7 +109,18 @@
                             tableData[rowIndex][colIndex] = td.textContent;
                         });
                     }
-
+                    
+                    // Apply styling for Row 1
+                    if (rowIndex === 0) {
+                        td.style.backgroundColor = "#939393"; // Dark gray background
+                        td.style.fontFamily = "Calibri, sans-serif"; // Font family
+                    }
+                     // Apply specific styling and behavior for cell A2 (rowIndex = 1, colIndex = 0)
+                    if (rowIndex === 1 && colIndex === 0) {
+                        td.contentEditable = false; // Make the cell non-editable
+                        td.style.textAlign = "left"; // Align the text to the left
+                        td.style.fontWeight = "bold"; // Optional: Add bold styling
+                    }
                     // Apply styling for specific cells (e.g., A3 to G3)
                     if (rowIndex === 2 && colIndex >= 0 && colIndex <= 6) {
                         td.style.backgroundColor = "black";
@@ -108,6 +129,11 @@
                         td.style.fontSize = "20px";
                         td.style.fontFamily = "Calibri, sans-serif";
                     }
+                     // Apply light gray background for alternating rows starting at row 5
+                    if (rowIndex >= 4 && rowIndex <= 28 && rowIndex % 2 === 0) {
+                        td.style.backgroundColor = "#D4D4D4"; // Light gray background
+                    }
+                    
 
                     tr.appendChild(td);
                 });
