@@ -11,7 +11,7 @@
             margin-top: 20px;
         }
         th, td {
-            border: 1px solid #000000;
+            border: 1px solid #ddd;
             padding: 8px;
             text-align: center;
         }
@@ -21,6 +21,14 @@
         td.editable:hover {
             background-color: #f9f9f9;
             cursor: pointer;
+        }
+          /* Specific styles for A4 to G29 */
+        tr:nth-child(n+3):nth-child(-n+29) td:not(:nth-child(8)) {
+        border: 1px solid black;
+    }
+         /* Different color for other cells */
+        td, th {
+            border: 1px solid #ccc; /* Default lighter border for other cells */
         }
             /* Set specific column widths */
         td:nth-child(1), th:nth-child(1) { /* Column A */
