@@ -38,6 +38,9 @@
         td:nth-child(2), th:nth-child(2) { /* Column B */
             width: 20%; /* Adjust as needed */
         }
+        tr:nth-child(n+5):nth-child(-n+30):nth-child(odd) {
+            background-color: #D4D4D4;
+        }
 
       
     </style>
@@ -45,24 +48,75 @@
 <body>
     <h1>Retail Sheet Editor</h1>
     <table id="excel-table"></table>
-    <button onclick="saveData()">Save Changes</button>
 
     <script>
+        const SKUMAP = {
+            "860009592568": "Post-Bio-GH",
+            "860009592551": "Omega-Alg",
+            "850016364982": "Edi-DR-BC-SML",
+            "864178000275": "Edi-DR-BC-LRG",
+            "850016364968": "TS-Edi-HJ-PB",
+            "850016364876": "Edi-HJ-PB-SML",
+            "850016364883": "Edi-HJ-PB-LRG",
+            "850016364890": "Edi-HJ-PB-FAM",
+            "850016364951": "TS-Edi-STRESS-PB",
+            "850016364838": "Edi-STRESS-PB-SML",
+            "850016364852": "Edi-STRESS-PB-LRG",
+            "850016364869": "Edi-STRESS-PB-FAM",
+            "850016364906": "Edi-DR-SP-SML",
+            "850016364913": "Edi-DR-SP-LRG",
+            "850016364944": "TS-Edi-STRESS-Pepp",
+            "850016364845": "Edi-STRESS-Pepp-SML",
+            "850016364821": "Edi-STRESS-Pepp-LRG",
+            "860008203403": "100-DR-HO",
+            "860008203410": "200-DR-HO",
+            "860008203427": "500-DR-HO",
+            "860008203434": "750-DR-HO",
+            "860009592575": "150-Mini-Stress-HO",
+            "860008203441": "300-SR-HO",
+            "860008203458": "600-SR-HO",
+            "860008203465": "300-HJR-HO",
+            "860008203472": "600-HJR-HO",
+            "860008221988": "180-CAT-SR",
+            "860008876775": "100-Lipe-Ultra",
+            "860008876768": "300-Lipe-Ultra",
+            "860009592513": "600-Lipe-Ultra",
+            "861109000304": "CAP450",
+            "850016364586": "SNT30",
+            "860009592537": "TS-Itchy-Dry-Shampoo",
+            "860008876713": "Itchy & Dry-SK-CT",
+            "860009592520": "Itchy-Dry-Shampoo-Gallon",
+            "860008876720": "Sensitive-SK-CT",
+            "860008876737": "Conditioner-SK-CT",
+            "860009592544": "TS-2in1-Shampoo",
+            "860008876744": "2in1-SK-CT",
+            "860008221971": "SK-PW-RL",
+        };
+
         let tableData = [];
+        let debounceTimeout = null;
 
         // Load data from the backend
         async function loadData() {
-            const response = await fetch("http://127.0.0.1:5000/load");
-            const result = await response.json();
+            try {
+                const response = await fetch("http://127.0.0.1:5000/load");
+                const result = await response.json();
 
-            if (result.status === "success") {
-                tableData = result.data;
-                renderTable(tableData);
-            } else {
-                alert("Failed to load data: " + result.message);
+                if (result.status === "success") {
+                    tableData = result.data;
+                    renderTable(tableData);
+                    observeTableChanges(); // Start observing table changes
+                } else {
+                    console.error("Failed to load data:", result.message);
+                    alert("Failed to load data: " + result.message);
+                }
+            } catch (error) {
+                console.error("Error loading data:", error);
+                alert("Error loading data: " + error.message);
             }
         }
 
+        // Render the table
         function renderTable(data) {
             const table = document.getElementById("excel-table");
             table.innerHTML = ""; // Clear the table
@@ -72,76 +126,29 @@
 
                 row.forEach((cell, colIndex) => {
                     if (cell === null) {
-                        // Skip cells covered by a merged range
-                        return;
+                        return; // Skip merged cells
                     }
 
                     const td = document.createElement("td");
+                    td.contentEditable = true;
+                    td.textContent = cell.value || ""; // Show empty cells as blank
+                    td.className = "editable";
 
-                    if (typeof cell === "object" && (cell.colspan || cell.rowspan)) {
-                        // Handle merged cells
-                        if (cell.colspan) {
-                            td.setAttribute("colspan", cell.colspan);
+                    // Update tableData on input and apply SKU mapping
+                    td.addEventListener("input", () => {
+                        const inputValue = td.textContent.trim();
+                        if (
+                            inputValue.length === 12 &&
+                            inputValue.startsWith("8") &&
+                            SKUMAP[inputValue]
+                        ) {
+                            td.textContent = SKUMAP[inputValue]; // Update cell with mapped SKU
+                            tableData[rowIndex][colIndex].value = SKUMAP[inputValue];
+                        } else {
+                            tableData[rowIndex][colIndex].value = inputValue;
                         }
-                        if (cell.rowspan) {
-                            td.setAttribute("rowspan", cell.rowspan);
-                        }
-                        td.textContent = cell.value || ""; // Display the value of the merged cell
-
-                        // Allow editing inside merged cells
-                        td.className = "editable";
-                        td.contentEditable = true;
-
-                        // Update the tableData on edit
-                        td.addEventListener("input", () => {
-                            tableData[rowIndex][colIndex].value = td.textContent;
-                        });
-                    } else if (typeof cell === "object" && cell.value !== undefined) {
-                        // Handle regular cells stored as objects
-                        td.textContent = cell.value || ""; // Display the cell value
-                        td.className = "editable";
-                        td.contentEditable = true;
-
-                        // Update the tableData on edit
-                        td.addEventListener("input", () => {
-                            tableData[rowIndex][colIndex].value = td.textContent;
-                        });
-                    } else {
-                        // Handle plain values
-                        td.textContent = cell || ""; // Show empty cells as blank
-                        td.className = "editable";
-                        td.contentEditable = true;
-
-                        // Update the tableData on edit
-                        td.addEventListener("input", () => {
-                            tableData[rowIndex][colIndex] = td.textContent;
-                        });
-                    }
-                    
-                    // Apply styling for Row 1
-                    if (rowIndex === 0) {
-                        td.style.backgroundColor = "#939393"; // Dark gray background
-                        td.style.fontFamily = "Calibri, sans-serif"; // Font family
-                    }
-                     // Apply specific styling and behavior for cell A2 (rowIndex = 1, colIndex = 0)
-                    if (rowIndex === 1 && colIndex === 0) {
-                        td.contentEditable = false; // Make the cell non-editable
-                        td.style.textAlign = "left"; // Align the text to the left
-                        td.style.fontWeight = "bold"; // Optional: Add bold styling
-                    }
-                    // Apply styling for specific cells (e.g., A3 to G3)
-                    if (rowIndex === 2 && colIndex >= 0 && colIndex <= 6) {
-                        td.style.backgroundColor = "black";
-                        td.style.color = "white";
-                        td.style.fontWeight = "bold";
-                        td.style.fontSize = "20px";
-                        td.style.fontFamily = "Calibri, sans-serif";
-                    }
-                     // Apply light gray background for alternating rows starting at row 5
-                    if (rowIndex >= 4 && rowIndex <= 28 && rowIndex % 2 === 0) {
-                        td.style.backgroundColor = "#D4D4D4"; // Light gray background
-                    }
-                    
+                        saveData(); // Trigger save after every input
+                    });
 
                     tr.appendChild(td);
                 });
@@ -150,26 +157,52 @@
             });
         }
 
-
         // Save data back to the backend
         async function saveData() {
-            const response = await fetch("http://127.0.0.1:5000/save", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ data: tableData }),
-            });
+            try {
+                // Send updated data to the backend
+                const response = await fetch("http://127.0.0.1:5000/save", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ data: tableData }),
+                });
 
-            const result = await response.json();
+                const result = await response.json();
 
-            if (result.status === "success") {
-                alert("Data saved successfully!");
-            } else {
-                alert("Failed to save data: " + result.message);
+                if (result.status === "success") {
+                    console.log("Data saved successfully!");
+                } else {
+                    console.error("Failed to save data:", result.message);
+                }
+            } catch (error) {
+                console.error("Error saving data:", error);
             }
         }
 
-        // Load the data when the page is loaded
+        // Observe table for changes
+        function observeTableChanges() {
+            const table = document.getElementById("excel-table");
+            const observer = new MutationObserver(() => {
+                if (debounceTimeout) {
+                    clearTimeout(debounceTimeout);
+                }
+
+                debounceTimeout = setTimeout(() => {
+                    saveData(); // Save changes after a short delay
+                }, 1000); // 1 second debounce delay
+            });
+
+            observer.observe(table, {
+                childList: true, // Monitor changes to child elements
+                attributes: true, // Monitor attribute changes
+                subtree: true, // Monitor changes within child elements
+                characterData: true, // Monitor text content changes
+            });
+        }
+
+        // Load data when the page is loaded
         window.onload = loadData;
     </script>
 </body>
 </html>
+
