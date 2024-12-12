@@ -34,6 +34,7 @@
             border-collapse: collapse;
             width: 100%;
             margin-top: 0;
+            border: 2px solid black;
         }
         
         th {
@@ -42,12 +43,28 @@
             padding: 8px;
             text-align: center;
             border: 1px solid black;
+            font-weight: bold;
         }
         
         td {
             border: 1px solid black;
             padding: 8px;
             background-color: white;
+            position: relative;
+            border-bottom: 1px solid black;
+            border-right: 1px solid black;
+        }
+        
+        tr td:not(:last-child) {
+            border-right: 1px solid black;
+        }
+        
+        tr:not(:last-child) td {
+            border-bottom: 1px solid black;
+        }
+        
+        thead tr {
+            border-bottom: 2px solid black;
         }
         
         tr:nth-child(odd) td {
@@ -424,7 +441,7 @@
                             lotCell.innerHTML = '';
                             lotCell.contentEditable = true;
                         }
-                        umCell.textContent = "CS";  // Set U/M to CS for warehouse SKUs
+                        umCell.textContent = "CA";  // Set U/M to CS for warehouse SKUs
                     } else {
                         updateLotOptions(lotSelect, skuName);
                         umCell.textContent = "EA";  // Set U/M to EA for regular SKUs
