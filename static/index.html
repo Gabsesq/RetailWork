@@ -101,6 +101,9 @@
             position: absolute;
             top: 20px;
             right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
         }
 
         .toggle-container {
@@ -184,6 +187,61 @@
         .totals, .signatures {
             margin: 10px 0;
         }
+
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+
+        .action-button {
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #printButton {
+            background-color: #4a90e2;
+            color: white;
+        }
+
+        #printButton:hover {
+            background-color: #357abd;
+        }
+
+        #clearButton {
+            background-color: #1a237e;
+            color: white;
+        }
+
+        #clearButton:hover {
+            background-color: #121858;
+        }
+
+        @media print {
+            .top-controls {
+                display: none;
+            }
+            
+            body {
+                padding: 0;
+            }
+
+            table {
+                page-break-inside: auto;
+            }
+
+            tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+        }
     </style>
 </head>
 <body>
@@ -218,6 +276,11 @@
             <!-- Table rows will be dynamically inserted here -->
         </tbody>
     </table>
+
+    <div class="button-container">
+        <button id="printButton" class="action-button">Print</button>
+        <button id="clearButton" class="action-button">Clear</button>
+    </div>
 
     <script>
         const SKUMAP = {
@@ -671,6 +734,38 @@
                 countCell.addEventListener('input', updateTotals);
             });
         }
+
+        // Add print functionality
+        document.getElementById('printButton').addEventListener('click', function() {
+            window.print();
+        });
+
+        // Add clear functionality
+        document.getElementById('clearButton').addEventListener('click', function() {
+            if (confirm('Are you sure you want to clear all entries? This cannot be undone.')) {
+                // Clear order info
+                document.querySelectorAll('.order-info [contenteditable]').forEach(element => {
+                    element.textContent = '';
+                });
+
+                // Clear table
+                const tbody = document.getElementById('excel-table');
+                tbody.innerHTML = '';
+
+                // Re-render empty table
+                const isWarehouse = document.getElementById('templateToggle').checked;
+                renderTable(isWarehouse);
+
+                // Clear totals if they exist
+                const totalElements = document.querySelectorAll('.table-footer [contenteditable]');
+                totalElements.forEach(element => {
+                    element.textContent = '';
+                });
+
+                // Update totals
+                updateTotals();
+            }
+        });
     </script>
 </body>
 </html>
