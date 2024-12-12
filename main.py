@@ -1,17 +1,9 @@
 from flask import Flask, jsonify, send_from_directory, request
 from openpyxl import load_workbook
 from flask_cors import CORS
-from threading import Timer
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-import os
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
-
-EXCEL_FILE_PATH = "Retail.xlsx"
-debounce_timer = None
-DEBOUNCE_DELAY = 1.0  # seconds
 
 # SKU mapping
 SKUMAP = {
@@ -57,95 +49,9 @@ SKUMAP = {
     "860008221971": "SK-PW-RL",
 }
 
-def load_excel_data():
-    workbook = load_workbook(EXCEL_FILE_PATH)
-    sheet = workbook.active
-    data = []
-
-    # Map merged cells to their metadata
-    merged_cells_map = {}
-    for merged_range in sheet.merged_cells.ranges:
-        top_left_cell = merged_range.start_cell
-        value = sheet[top_left_cell.coordinate].value
-        merged_cells_map[(top_left_cell.row, top_left_cell.column)] = {
-            "value": value,
-            "colspan": merged_range.size["columns"],
-            "rowspan": merged_range.size["rows"],
-        }
-
-    # Read data while skipping cells covered by merges
-    for row_index, row in enumerate(sheet.iter_rows(values_only=False), start=1):
-        row_data = []
-        for col_index, cell in enumerate(row, start=1):
-            if (row_index, col_index) in merged_cells_map:
-                # Add the master cell data
-                row_data.append(merged_cells_map[(row_index, col_index)])
-            elif any(
-                (row_index >= merged_range.min_row and row_index <= merged_range.max_row and
-                 col_index >= merged_range.min_col and col_index <= merged_range.max_col)
-                for merged_range in sheet.merged_cells.ranges
-            ):
-                # Skip cells covered by a merge
-                row_data.append(None)
-            else:
-                # Add regular cell data
-                row_data.append({"value": cell.value if cell.value is not None else ""})
-        data.append(row_data)
-
-    return data
-
-def process_file_update():
-    print("Processing file update...")
-    try:
-        workbook = load_workbook(EXCEL_FILE_PATH)
-        sheet = workbook.active
-
-        for row in range(4, 30):
-            cell_value = sheet[f"A{row}"].value
-
-            if (
-                cell_value
-                and isinstance(cell_value, str)
-                and cell_value.isdigit()
-                and cell_value.startswith("8")
-                and len(cell_value) == 12
-            ):
-                print(f"Detected 12-digit UPC starting with '8': {cell_value}")
-
-                if cell_value in SKUMAP:
-                    sku = SKUMAP[cell_value]
-                    print(f"Mapped SKU for {cell_value}: {sku}")
-                    sheet[f"G{row}"].value = sku
-
-        workbook.save(EXCEL_FILE_PATH)
-        print("File update processed and saved.")
-    except Exception as e:
-        print(f"Error processing file update: {e}")
-
-class ExcelChangeHandler(FileSystemEventHandler):
-    def on_modified(self, event):
-        global debounce_timer
-
-        if event.src_path.endswith(EXCEL_FILE_PATH):
-            print(f"Detected changes in {EXCEL_FILE_PATH}")
-
-            if debounce_timer:
-                debounce_timer.cancel()
-
-            debounce_timer = Timer(DEBOUNCE_DELAY, process_file_update)
-            debounce_timer.start()
-
 @app.route("/", methods=["GET"])
 def home():
     return send_from_directory(app.static_folder, "index.html")
-
-@app.route("/load", methods=["GET"])
-def load_data():
-    try:
-        data = load_excel_data()
-        return jsonify({"status": "success", "data": data})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)})
 
 @app.route('/get-lot-codes', methods=['GET'])
 def get_lot_codes():
@@ -203,17 +109,5 @@ def get_lot_codes():
         return jsonify({"status": "error", "message": str(e)})
 
 if __name__ == "__main__":
-    if not os.path.isfile(EXCEL_FILE_PATH):
-        raise FileNotFoundError(f"The specified file '{EXCEL_FILE_PATH}' does not exist.")
-    
-    observer = Observer()
-    event_handler = ExcelChangeHandler()
-    observer.schedule(event_handler, path=os.getcwd(), recursive=False)
-    observer.start()
-
-    try:
-        app.run(debug=True, use_reloader=False)
-    except KeyboardInterrupt:
-        observer.stop()
-    observer.join()
+    app.run(debug=True)
 

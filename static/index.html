@@ -153,29 +153,8 @@
         let tableData = [];
         let debounceTimeout = null;
 
-        // Load data from the backend
-        async function loadData() {
-            try {
-                await loadLotCodes();  // Load lot codes first
-                const response = await fetch("http://127.0.0.1:5000/load");
-                const result = await response.json();
-
-                if (result.status === "success") {
-                    tableData = result.data;
-                    renderTable(tableData);
-                    observeTableChanges();
-                } else {
-                    console.error("Failed to load data:", result.message);
-                    alert("Failed to load data: " + result.message);
-                }
-            } catch (error) {
-                console.error("Error loading data:", error);
-                alert("Error loading data: " + error.message);
-            }
-        }
-
         // Render the table
-        function renderTable(data) {
+        function renderTable() {
             const tbody = document.getElementById("excel-table");
             tbody.innerHTML = "";
 
@@ -209,11 +188,10 @@
                 umTd.addEventListener("input", checkForEmptyRow);
                 tr.appendChild(umTd);
                 
-                // COUNT cell with default value 1
+                // COUNT cell (no default value)
                 const countTd = document.createElement("td");
                 countTd.contentEditable = true;
                 countTd.addEventListener("input", checkForEmptyRow);
-                countTd.textContent = "1";  // Set default count to 1
                 tr.appendChild(countTd);
                 
                 return tr;
@@ -253,9 +231,9 @@
                 }
             }
 
-            // Add initial rows (minimum 20 or more if needed)
+            // Add initial rows (minimum 20)
             const minRows = 20;
-            for (let i = 0; i < Math.max(minRows, (data?.length || 0) + 1); i++) {
+            for (let i = 0; i < minRows; i++) {
                 tbody.appendChild(createRow());
             }
 
@@ -268,28 +246,38 @@
             const tr = td.parentElement;
             const lotSelect = tr.children[1].querySelector("select");
             const inputValue = td.textContent.trim();
+            const countCell = tr.children[4];
+            const umCell = tr.children[3];  // U/M cell
 
             if (inputValue.length === 12 && inputValue.startsWith("8") && SKUMAP[inputValue]) {
                 const skuName = SKUMAP[inputValue];
                 
-                // Check if this SKU already exists in the table
+                // If the cell already contains this SKU name, just increment the count
+                if (td.dataset.lastScannedSku === inputValue) {
+                    const currentCount = parseInt(countCell.textContent) || 0;
+                    countCell.textContent = (currentCount + 1).toString();
+                    td.textContent = skuName;  // Reset the cell content to SKU name
+                    return;
+                }
+                
+                // Store the scanned SKU for future reference
+                td.dataset.lastScannedSku = inputValue;
+                
+                // Rest of the existing logic for checking other rows...
                 const tbody = document.getElementById("excel-table");
                 const rows = tbody.getElementsByTagName("tr");
                 let existingRow = null;
                 
-                // Look for existing row with same SKU and lot number
                 for (let i = 0; i < rows.length; i++) {
                     const row = rows[i];
                     const rowSku = row.children[0].textContent.trim();
                     const rowLot = row.children[1].querySelector('select')?.value;
                     
                     if (rowSku === skuName && row !== tr) {
-                        // If lot hasn't been selected in current row yet, just use existing row's lot
                         if (!lotSelect.value && rowLot) {
                             existingRow = row;
                             break;
                         }
-                        // If lots match (including both being empty), use this row
                         if (lotSelect.value === rowLot) {
                             existingRow = row;
                             break;
@@ -298,32 +286,27 @@
                 }
 
                 if (existingRow) {
-                    // Add the counts together
                     const existingCount = parseInt(existingRow.children[4].textContent) || 0;
-                    const newCount = parseInt(tr.children[4].textContent) || 1;
+                    const newCount = parseInt(countCell.textContent) || 1;
                     existingRow.children[4].textContent = (existingCount + newCount).toString();
                     
-                    // Clear the current row if it's not the last row
                     if (tr !== rows[rows.length - 1]) {
                         tr.remove();
                     } else {
-                        // If it's the last row, just clear it
                         td.textContent = "";
+                        td.dataset.lastScannedSku = "";  // Clear the stored SKU
                         lotSelect.value = "";
                         tr.children[2].textContent = "";
-                        tr.children[3].textContent = "";
-                        tr.children[4].textContent = "1";  // Reset to default count
+                        umCell.textContent = "";  // Clear U/M
+                        countCell.textContent = "";  // Clear the count
                     }
                 } else {
-                    // No existing row found, proceed with normal SKU update
                     td.textContent = skuName;
                     updateLotOptions(lotSelect, skuName);
+                    countCell.textContent = "1";  // Only set count to 1 when new valid SKU is added
                     
-                    // Ensure count is at least 1
-                    const countCell = tr.children[4];
-                    if (!countCell.textContent.trim()) {
-                        countCell.textContent = "1";
-                    }
+                    // Set U/M based on SKU name
+                    umCell.textContent = skuName.startsWith("WH") ? "CA" : "EA";
                 }
             }
         }
@@ -349,51 +332,11 @@
             });
         }
 
-        // Save data back to the backend
-        async function saveData() {
-            try {
-                // Send updated data to the backend
-                const response = await fetch("http://127.0.0.1:5000/save", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ data: tableData }),
-                });
-
-                const result = await response.json();
-
-                if (result.status === "success") {
-                    console.log("Data saved successfully!");
-                } else {
-                    console.error("Failed to save data:", result.message);
-                }
-            } catch (error) {
-                console.error("Error saving data:", error);
-            }
-        }
-
-        // Observe table for changes
-        function observeTableChanges() {
-            const table = document.getElementById("excel-table");
-            const observer = new MutationObserver(() => {
-                if (debounceTimeout) {
-                    clearTimeout(debounceTimeout);
-                }
-
-                debounceTimeout = setTimeout(() => {
-                    saveData(); // Save changes after a short delay
-                }, 1000); // 1 second debounce delay
-            });
-
-            observer.observe(table, {
-                childList: true, // Monitor changes to child elements
-                attributes: true, // Monitor attribute changes
-                subtree: true, // Monitor changes within child elements
-                characterData: true, // Monitor text content changes
-            });
-        }
-
         // Load data when the page is loaded
-        window.onload = loadData;
+        window.onload = async () => {
+            await loadLotCodes();
+            renderTable();
+        };
 
         // Add this function after loadData():
         async function loadLotCodes() {
