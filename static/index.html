@@ -225,15 +225,48 @@
         }
 
         @media print {
-            .top-controls {
+            .top-controls, .button-container {
                 display: none;
             }
             
             body {
                 padding: 0;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            table, th, td {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                border: 1px solid black !important;
+            }
+
+            th {
+                background-color: black !important;
+                color: white !important;
+            }
+
+            tr:nth-child(odd) td {
+                background-color: #D3D3D3 !important;
+            }
+
+            tr:nth-child(even) td {
+                background-color: white !important;
+            }
+
+            .header {
+                background-color: #D3D3D3 !important;
+                border: 1px solid black !important;
+            }
+
+            .order-info {
+                border-left: 1px solid black !important;
+                border-right: 1px solid black !important;
+                border-bottom: 1px solid black !important;
             }
 
             table {
+                border: 2px solid black !important;
                 page-break-inside: auto;
             }
 
