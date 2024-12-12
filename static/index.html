@@ -314,22 +314,35 @@
 
         // Add this helper function
         function updateLotOptions(select, sku) {
-            console.log("Updating options for SKU:", sku); // Debug log
-            select.innerHTML = ""; // Clear existing options
-            select.appendChild(new Option("", "")); // Add empty option
+            console.log("\nUpdating options for SKU:", sku);
+            select.innerHTML = "";
+            select.appendChild(new Option("", ""));
             
-            // Try to find matching lot codes, accounting for case differences
-            const normalizedSku = sku?.toString().toUpperCase().trim();
-            const matchingSku = Object.keys(LOT_CODES).find(
-                key => key.toUpperCase().trim() === normalizedSku
-            );
+            const normalizedInputSku = sku?.toString().trim();
+            console.log("Available SKUs in LOT_CODES:", Object.keys(LOT_CODES));
+            console.log("Looking for SKU (exact):", normalizedInputSku);
+            console.log("Looking for SKU (uppercase):", normalizedInputSku.toUpperCase());
             
-            console.log("Matching SKU found:", matchingSku); // Debug log
-            if (matchingSku && LOT_CODES[matchingSku]) {
-                // Now LOT_CODES contains an object with lot codes as keys and BB dates as values
+            // Try exact match first
+            let matchingSku = Object.keys(LOT_CODES).find(key => key === normalizedInputSku);
+            console.log("Exact match found:", matchingSku);
+            
+            // If no exact match, try case-insensitive
+            if (!matchingSku) {
+                matchingSku = Object.keys(LOT_CODES).find(
+                    key => key.toUpperCase() === normalizedInputSku.toUpperCase()
+                );
+                console.log("Case-insensitive match found:", matchingSku);
+            }
+            
+            if (matchingSku) {
+                console.log("Lot codes for", matchingSku, ":", LOT_CODES[matchingSku]);
                 Object.keys(LOT_CODES[matchingSku]).forEach(lot => {
+                    console.log("Adding lot option:", lot);
                     select.appendChild(new Option(lot, lot));
                 });
+            } else {
+                console.log("No matching SKU found in LOT_CODES");
             }
         }
 
@@ -364,7 +377,7 @@
             const skuName = tr.children[0].textContent.trim();
             const bbCell = tr.children[2];  // B/B cell
             
-            // Find matching SKU name ignoring case
+            // Find matching SKU using case-insensitive comparison
             const matchingSku = Object.keys(LOT_CODES).find(
                 key => key.toUpperCase() === skuName.toUpperCase()
             );
