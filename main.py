@@ -76,9 +76,11 @@ def get_lot_codes():
             for col_idx in sku_columns:
                 sku = row[col_idx].value
                 lot_col_idx = col_idx + 1  # Lot column is next to SKU column
+                bb_col_idx = lot_col_idx + 3  # BB date is 3 columns after lot
                 
-                if lot_col_idx < len(row):  # Make sure lot column exists
+                if lot_col_idx < len(row) and bb_col_idx < len(row):  # Make sure columns exist
                     lot = row[lot_col_idx].value
+                    bb_date = row[bb_col_idx].value
                     
                     # Skip empty rows or rows without SKU/lot
                     if not sku and not lot:
@@ -91,18 +93,27 @@ def get_lot_codes():
                         if current_sku.lower().startswith('ts-'):
                             current_sku = current_sku[3:]  # Remove 'TS-' prefix
                         if current_sku not in lot_codes:
-                            lot_codes[current_sku] = []
+                            lot_codes[current_sku] = {}
                         if lot and str(lot).strip().lower() != 'total':
-                            lot_codes[current_sku].append(str(lot))
+                            # Format BB date as MM/DD/YY
+                            if bb_date:
+                                bb_date_str = bb_date.strftime('%m/%d/%y')
+                            else:
+                                bb_date_str = ''
+                            lot_codes[current_sku][str(lot)] = bb_date_str
                     # If we have a lot number but no SKU (continuing previous SKU)
                     elif not sku and lot and current_sku:
                         if str(lot).strip().lower() != 'total':
-                            lot_codes[current_sku].append(str(lot))
+                            if bb_date:
+                                bb_date_str = bb_date.strftime('%m/%d/%y')
+                            else:
+                                bb_date_str = ''
+                            lot_codes[current_sku][str(lot)] = bb_date_str
                     # If we hit 'Total', reset current_sku for this column
                     elif sku and str(sku).strip() == 'Total':
                         current_sku = None
 
-        print("Loaded lot codes:", lot_codes)  # Debug print
+        print("Final lot_codes:", lot_codes)  # Debug print
         return jsonify({"status": "success", "data": lot_codes})
     except Exception as e:
         print("Error loading lot codes:", str(e))  # Debug print

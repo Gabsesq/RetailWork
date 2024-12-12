@@ -173,6 +173,7 @@
                 const lotTd = document.createElement("td");
                 const lotSelect = document.createElement("select");
                 lotSelect.appendChild(new Option("", ""));
+                lotSelect.addEventListener("change", handleLotSelection);
                 lotTd.appendChild(lotSelect);
                 tr.appendChild(lotTd);
                 
@@ -324,12 +325,12 @@
             );
             
             console.log("Matching SKU found:", matchingSku); // Debug log
-            const lotCodes = matchingSku ? LOT_CODES[matchingSku] : [];
-            console.log("Found lot codes:", lotCodes); // Debug log
-            
-            lotCodes.forEach(lot => {
-                select.appendChild(new Option(lot, lot));
-            });
+            if (matchingSku && LOT_CODES[matchingSku]) {
+                // Now LOT_CODES contains an object with lot codes as keys and BB dates as values
+                Object.keys(LOT_CODES[matchingSku]).forEach(lot => {
+                    select.appendChild(new Option(lot, lot));
+                });
+            }
         }
 
         // Load data when the page is loaded
@@ -352,6 +353,30 @@
                 }
             } catch (error) {
                 console.error("Error loading lot codes:", error);
+            }
+        }
+
+        // Add this new function to handle lot selection
+        function handleLotSelection(event) {
+            const select = event.target;
+            const tr = select.closest("tr");
+            const selectedLot = select.value;
+            const skuName = tr.children[0].textContent.trim();
+            const bbCell = tr.children[2];  // B/B cell
+            
+            // Find matching SKU name ignoring case
+            const matchingSku = Object.keys(LOT_CODES).find(
+                key => key.toUpperCase() === skuName.toUpperCase()
+            );
+            
+            console.log("Lot Selection - SKU:", skuName);
+            console.log("Matching SKU:", matchingSku);
+            console.log("Selected Lot:", selectedLot);
+            
+            if (selectedLot && matchingSku && LOT_CODES[matchingSku] && LOT_CODES[matchingSku][selectedLot]) {
+                bbCell.textContent = LOT_CODES[matchingSku][selectedLot];
+            } else {
+                bbCell.textContent = "";
             }
         }
     </script>
