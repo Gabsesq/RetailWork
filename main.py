@@ -64,38 +64,55 @@ def get_lot_codes():
         current_skus = {col: None for col in range(ws.max_column)}
         
         # Find all SKU columns from the header row
-        for col_idx, cell in enumerate(next(ws.rows)):
+        header_row = next(ws.rows)
+        for col_idx, cell in enumerate(header_row):
             if cell.value and 'SKU' in str(cell.value).upper():
                 sku_columns.append(col_idx)
-                print(f"Found SKU column at index {col_idx}")  # Debug print
+                print(f"Found SKU column at index {col_idx}")
+                # Print the next few column headers for debugging
+                for i in range(5):
+                    if col_idx + i < len(header_row):
+                        print(f"  Column {col_idx + i}: {header_row[col_idx + i].value}")
         
         # Process each row from row 5
         for row_idx, row in enumerate(ws.iter_rows(min_row=5), start=5):
             for col_idx in sku_columns:
                 sku = row[col_idx].value
-                lot_col_idx = col_idx + 1
-                bb_col_idx = col_idx + 4
+                lot_col_idx = col_idx + 1  # Lot column is next to SKU
+                case_col_idx = col_idx + 2  # Case count column
+                each_col_idx = col_idx + 3  # Each column
+                bb_col_idx = col_idx + 4  # BB date is in the 5th column of each section
                 
                 if lot_col_idx < len(row) and bb_col_idx < len(row):
                     lot = row[lot_col_idx].value
                     bb_date = row[bb_col_idx].value
                     
-                    # Debug prints
-                    if sku or lot:
-                        print(f"Row {row_idx}, Col {col_idx}:")
-                        print(f"  SKU: {sku}")
-                        print(f"  Lot: {lot}")
-                        print(f"  BB Date: {bb_date}")
+                    # Debug prints for all columns in this section
+                    if sku and 'TS-' in str(sku):
+                        print(f"\nProcessing TS- SKU row {row_idx}:")
+                        print(f"  SKU ({col_idx}): {sku}")
+                        print(f"  Lot# ({lot_col_idx}): {lot}")
+                        print(f"  Case ({case_col_idx}): {row[case_col_idx].value if case_col_idx < len(row) else 'N/A'}")
+                        print(f"  Each ({each_col_idx}): {row[each_col_idx].value if each_col_idx < len(row) else 'N/A'}")
+                        print(f"  BB Date ({bb_col_idx}): {bb_date}")
+                        # Print next few cells for context
+                        for i in range(6):
+                            if col_idx + i < len(row):
+                                print(f"  Column {col_idx + i}: {row[col_idx + i].value}")
                     
+                    # Store the original SKU name without any case changes
                     if sku and str(sku).strip() != 'Total':
                         current_sku = str(sku).strip()
                         current_skus[col_idx] = current_sku
                         if current_sku not in lot_codes:
                             lot_codes[current_sku] = {}
-                            print(f"Created new SKU entry: {current_sku}")  # Debug print
+                            print(f"Created new SKU entry: {current_sku}")
                     
                     elif sku and str(sku).strip() == 'Total':
+                        if current_skus[col_idx] and 'TS-' in current_skus[col_idx]:
+                            print(f"Hit Total for TS- SKU: {current_skus[col_idx]}")
                         current_skus[col_idx] = None
+                        continue
                     
                     if lot and current_skus[col_idx] and str(lot).strip().lower() != 'total':
                         current_sku = current_skus[col_idx]
@@ -104,13 +121,15 @@ def get_lot_codes():
                         else:
                             bb_date_str = ''
                         lot_codes[current_sku][str(lot)] = bb_date_str
-                        print(f"Added lot code for {current_sku}: {lot} -> {bb_date_str}")  # Debug print
+                        if 'TS-' in current_sku:
+                            print(f"Added lot code for TS- SKU {current_sku}: {lot} -> {bb_date_str}")
 
-        print("\nFinal lot_codes structure:")
-        for sku, lots in lot_codes.items():
-            print(f"{sku}:")
-            for lot, bb in lots.items():
-                print(f"  {lot}: {bb}")
+        print("\nFinal lot_codes structure for TS- SKUs:")
+        for sku in sorted(lot_codes.keys()):
+            if 'TS-' in sku:
+                print(f"{sku}:")
+                for lot, bb in lot_codes[sku].items():
+                    print(f"  {lot}: {bb}")
         
         return jsonify({"status": "success", "data": lot_codes})
     except Exception as e:
