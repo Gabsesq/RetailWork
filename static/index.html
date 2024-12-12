@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Picklist / Pallet Confirmation</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body {
             margin: 0;
@@ -79,9 +80,125 @@
         tr:nth-child(even) td select {
             background-color: white;
         }
+        
+        .settings-icon {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #333;
+            transition: transform 0.3s ease;
+        }
+
+        .settings-icon:hover {
+            transform: rotate(45deg);
+        }
+
+        .top-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: #2196F3;
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(30px);
+        }
+
+        .template-label {
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        [contenteditable="true"] {
+            outline: none;
+            border-bottom: 1px solid #ccc;
+            min-width: 20px;
+            min-height: 1em;
+        }
+
+        [contenteditable="true"]:focus {
+            border-bottom: 2px solid #2196F3;
+        }
+
+        .table-footer {
+            margin-top: 20px;
+            padding: 10px;
+        }
+
+        .table-footer [contenteditable="true"] {
+            display: inline-block;
+            min-width: 100px;
+            padding: 2px 5px;
+        }
+
+        .totals, .signatures {
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
+    <div class="top-controls">
+        <div class="toggle-container">
+            <span class="template-label">Retail</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="templateToggle">
+                <span class="toggle-slider"></span>
+            </label>
+            <span class="template-label">WH</span>
+        </div>
+        <i class="fas fa-cog settings-icon" id="settingsIcon"></i>
+    </div>
     <div class="header">
         PICKLIST / PALLET CONFIRMATION LIST
     </div>
@@ -153,100 +270,76 @@
         let tableData = [];
         let debounceTimeout = null;
 
-        // Render the table
-        function renderTable() {
-            const tbody = document.getElementById("excel-table");
-            tbody.innerHTML = "";
-
-            // Function to create a new row
-            function createRow() {
-                const tr = document.createElement("tr");
-                
-                // SKU cell with contenteditable
-                const skuTd = document.createElement("td");
-                skuTd.contentEditable = true;
-                skuTd.addEventListener("input", handleSkuInput);
-                skuTd.addEventListener("input", checkForEmptyRow);
-                tr.appendChild(skuTd);
-                
-                // LOT cell with dropdown
-                const lotTd = document.createElement("td");
+        // Move createRow outside of renderTable
+        function createRow(isWarehouse) {
+            const tr = document.createElement("tr");
+            
+            // SKU cell
+            const skuTd = document.createElement("td");
+            skuTd.contentEditable = true;
+            skuTd.addEventListener("input", handleSkuInput);
+            tr.appendChild(skuTd);
+            
+            // LOT cell
+            const lotTd = document.createElement("td");
+            if (!isWarehouse) {
                 const lotSelect = document.createElement("select");
                 lotSelect.appendChild(new Option("", ""));
                 lotSelect.addEventListener("change", handleLotSelection);
                 lotTd.appendChild(lotSelect);
-                tr.appendChild(lotTd);
-                
-                // B/B cell
+            } else {
+                lotTd.contentEditable = true;
+            }
+            tr.appendChild(lotTd);
+            
+            if (!isWarehouse) {
+                // B/B cell (only for retail)
                 const bbTd = document.createElement("td");
                 bbTd.contentEditable = true;
-                bbTd.addEventListener("input", checkForEmptyRow);
                 tr.appendChild(bbTd);
-                
-                // U/M cell
-                const umTd = document.createElement("td");
-                umTd.contentEditable = true;
-                umTd.addEventListener("input", checkForEmptyRow);
-                tr.appendChild(umTd);
-                
-                // COUNT cell (no default value)
-                const countTd = document.createElement("td");
-                countTd.contentEditable = true;
-                countTd.addEventListener("input", checkForEmptyRow);
-                tr.appendChild(countTd);
-                
-                return tr;
             }
-
-            // Function to check if we need to add a new empty row
-            function checkForEmptyRow() {
-                const tbody = document.getElementById("excel-table");
-                const rows = tbody.getElementsByTagName("tr");
-                const lastRow = rows[rows.length - 1];
+            
+            // U/M cell
+            const umTd = document.createElement("td");
+            umTd.contentEditable = true;
+            tr.appendChild(umTd);
+            
+            // COUNT/CNT1 cell
+            const countTd = document.createElement("td");
+            countTd.contentEditable = true;
+            tr.appendChild(countTd);
+            
+            if (isWarehouse) {
+                // Add PALLET 1 & 2 cells for warehouse
+                const pallet1Td = document.createElement("td");
+                pallet1Td.contentEditable = true;
+                tr.appendChild(pallet1Td);
                 
-                // Check if the last row has any content
-                const isEmpty = Array.from(lastRow.children).every(cell => {
-                    const content = cell.tagName === 'TD' ? 
-                        (cell.querySelector('select')?.value || cell.textContent) : 
-                        cell.textContent;
-                    return !content.trim();
-                });
-
-                // If last row is not empty, add a new empty row
-                if (!isEmpty) {
-                    tbody.appendChild(createRow());
-                }
-                
-                // Optional: Remove any empty rows except the last one
-                for (let i = rows.length - 2; i >= 0; i--) {
-                    const row = rows[i];
-                    const rowIsEmpty = Array.from(row.children).every(cell => {
-                        const content = cell.tagName === 'TD' ? 
-                            (cell.querySelector('select')?.value || cell.textContent) : 
-                            cell.textContent;
-                        return !content.trim();
-                    });
-                    if (rowIsEmpty && i < rows.length - 1) {
-                        row.remove();
-                    }
-                }
+                const pallet2Td = document.createElement("td");
+                pallet2Td.contentEditable = true;
+                tr.appendChild(pallet2Td);
             }
+            
+            return tr;
+        }
 
-            // Add initial rows (minimum 20)
+        // Modify renderTable to use the global createRow
+        function renderTable(isWarehouse = false) {
+            const tbody = document.getElementById("excel-table");
+            tbody.innerHTML = "";
+
+            // Add initial rows
             const minRows = 20;
             for (let i = 0; i < minRows; i++) {
-                tbody.appendChild(createRow());
+                tbody.appendChild(createRow(isWarehouse));
             }
-
-            // Initial check for empty row
-            checkForEmptyRow();
         }
 
         function handleSkuInput(event) {
             const td = event.target;
             const tr = td.parentElement;
             const lotSelect = tr.children[1].querySelector("select");
-            const lotCell = tr.children[1];  // The LOT cell itself
+            const lotCell = tr.children[1];
             const inputValue = td.textContent.trim();
             const countCell = tr.children[4];
             const umCell = tr.children[3];
@@ -259,7 +352,8 @@
                 if (td.dataset.lastScannedSku === inputValue) {
                     const currentCount = parseInt(countCell.textContent) || 0;
                     countCell.textContent = (currentCount + 1).toString();
-                    td.textContent = skuName;  // Reset the cell content to SKU name
+                    td.textContent = skuName;
+                    checkForEmptyRow();
                     return;
                 }
                 
@@ -320,6 +414,7 @@
                             countCell.textContent = "";
                         }
                     }
+                    checkForEmptyRow();
                 } else {
                     td.textContent = skuName;
                     
@@ -336,6 +431,7 @@
                     }
                     
                     countCell.textContent = "1";
+                    checkForEmptyRow();
                 }
             }
         }
@@ -439,7 +535,95 @@
             tr.children[3].textContent = "";
             tr.children[4].textContent = "";
         }
+
+        function renderWarehouseTemplate() {
+            const table = document.querySelector('table');
+            const thead = table.querySelector('thead tr');
+            thead.innerHTML = `
+                <th>SKU</th>
+                <th>LOT</th>
+                <th>U/M</th>
+                <th>CNT1</th>
+                <th>PALLET 1</th>
+                <th>PALLET 2</th>
+            `;
+
+            // Update footer area
+            const footer = document.createElement('div');
+            footer.className = 'table-footer';
+            footer.innerHTML = `
+                <div class="totals">
+                    <div>Total Cases Shipped: <span contenteditable="true"></span></div>
+                    <div>Total Cases Confirmed: <span contenteditable="true"></span></div>
+                </div>
+                <div class="signatures">
+                    <div>Signature: <span contenteditable="true"></span></div>
+                    <div>
+                        <div>Total Cases on Pallet 1: <span contenteditable="true"></span></div>
+                        <div>Total Cases on Pallet 2: <span contenteditable="true"></span></div>
+                    </div>
+                </div>
+            `;
+            
+            // Insert footer after table
+            table.parentNode.insertBefore(footer, table.nextSibling);
+        }
+
+        function renderRetailTemplate() {
+            const table = document.querySelector('table');
+            const thead = table.querySelector('thead tr');
+            thead.innerHTML = `
+                <th>SKU</th>
+                <th>LOT</th>
+                <th>B/B</th>
+                <th>U/M</th>
+                <th>COUNT</th>
+            `;
+
+            // Remove warehouse footer if it exists
+            const footer = document.querySelector('.table-footer');
+            if (footer) footer.remove();
+        }
+
+        // Add event listener for template toggle
+        document.getElementById('templateToggle').addEventListener('change', function(e) {
+            if (this.checked) {
+                renderWarehouseTemplate();
+            } else {
+                renderRetailTemplate();
+            }
+            // Re-render the table rows
+            renderTable(this.checked);
+        });
+
+        // Add back the checkForEmptyRow function
+        function checkForEmptyRow() {
+            const tbody = document.getElementById("excel-table");
+            const rows = tbody.getElementsByTagName("tr");
+            const isWarehouse = document.getElementById('templateToggle').checked;
+            
+            // Get the last row
+            const lastRow = rows[rows.length - 1];
+            
+            // Check if any cell in the last row has content
+            let hasContent = false;
+            Array.from(lastRow.children).forEach(cell => {
+                if (cell.querySelector('select')) {
+                    if (cell.querySelector('select').value) hasContent = true;
+                } else if (cell.textContent.trim()) {
+                    hasContent = true;
+                }
+            });
+
+            // If the last row has any content, add a new row
+            if (hasContent) {
+                console.log("Adding new row because last row has content");
+                const newRow = createRow(isWarehouse);
+                tbody.appendChild(newRow);
+            }
+        }
     </script>
 </body>
 </html>
+
 
