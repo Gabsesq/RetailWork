@@ -350,6 +350,9 @@
             for (let i = 0; i < minRows; i++) {
                 tbody.appendChild(createRow(isWarehouse));
             }
+            
+            addCountCellListeners();
+            updateTotals();
         }
 
         function handleSkuInput(event) {
@@ -358,9 +361,12 @@
             const lotSelect = tr.children[1].querySelector("select");
             const lotCell = tr.children[1];
             const inputValue = td.textContent.trim();
-            const countCell = tr.children[4];
-            const umCell = tr.children[3];
-
+            const isWarehouse = document.getElementById('templateToggle').checked;
+            
+            // Adjust cell references based on template type
+            const umCell = tr.children[2];  // U/M is the third column in warehouse mode
+            const countCell = tr.children[3];  // CNT1 is the fourth column in warehouse mode
+            
             // Handle both WH- prefixed SKUs and regular barcodes
             if (inputValue.startsWith('WH-') || (inputValue.length === 12 && inputValue.startsWith("8") && SKUMAP[inputValue])) {
                 let skuName = inputValue.startsWith('WH-') ? inputValue : SKUMAP[inputValue];
@@ -371,6 +377,7 @@
                     countCell.textContent = (currentCount + 1).toString();
                     td.textContent = skuName;
                     checkForEmptyRow();
+                    updateTotals();
                     return;
                 }
                 
@@ -413,9 +420,9 @@
                 }
 
                 if (existingRow) {
-                    const existingCount = parseInt(existingRow.children[4].textContent) || 0;
+                    const existingCount = parseInt(existingRow.children[isWarehouse ? 3 : 4].textContent) || 0;
                     const newCount = parseInt(countCell.textContent) || 1;
-                    existingRow.children[4].textContent = (existingCount + newCount).toString();
+                    existingRow.children[isWarehouse ? 3 : 4].textContent = (existingCount + newCount).toString();
                     
                     if (tr !== rows[rows.length - 1]) {
                         tr.remove();
@@ -432,23 +439,24 @@
                         }
                     }
                     checkForEmptyRow();
+                    updateTotals();
                 } else {
                     td.textContent = skuName;
                     
                     if (inputValue.startsWith('WH-')) {
-                        // For WH SKUs, make LOT directly editable
                         if (lotSelect) {
                             lotCell.innerHTML = '';
                             lotCell.contentEditable = true;
                         }
-                        umCell.textContent = "CA";  // Set U/M to CS for warehouse SKUs
+                        umCell.textContent = "CA";  // Set U/M in correct column
                     } else {
                         updateLotOptions(lotSelect, skuName);
-                        umCell.textContent = "EA";  // Set U/M to EA for regular SKUs
+                        umCell.textContent = "EA";
                     }
                     
                     countCell.textContent = "1";
                     checkForEmptyRow();
+                    updateTotals();
                 }
             }
         }
@@ -545,12 +553,17 @@
 
         // Helper function to clear a row
         function clearRow(tr) {
-            tr.children[0].textContent = "";
-            tr.children[0].dataset.lastScannedSku = "";
-            tr.children[1].textContent = "";
-            tr.children[2].textContent = "";
-            tr.children[3].textContent = "";
-            tr.children[4].textContent = "";
+            const isWarehouse = document.getElementById('templateToggle').checked;
+            const columnCount = isWarehouse ? 6 : 5;  // WH has 6 columns, retail has 5
+            
+            for (let i = 0; i < columnCount; i++) {
+                if (tr.children[i]) {
+                    tr.children[i].textContent = "";
+                    if (i === 0) {
+                        tr.children[i].dataset.lastScannedSku = "";
+                    }
+                }
+            }
         }
 
         function renderWarehouseTemplate() {
@@ -609,8 +622,8 @@
             } else {
                 renderRetailTemplate();
             }
-            // Re-render the table rows
             renderTable(this.checked);
+            updateTotals();
         });
 
         // Add back the checkForEmptyRow function
@@ -638,6 +651,43 @@
                 const newRow = createRow(isWarehouse);
                 tbody.appendChild(newRow);
             }
+        }
+
+        function updateTotals() {
+            const tbody = document.getElementById("excel-table");
+            const rows = tbody.getElementsByTagName("tr");
+            const isWarehouse = document.getElementById('templateToggle').checked;
+            
+            // Calculate total from CNT1 column (index 3 for warehouse)
+            let total = 0;
+            Array.from(rows).forEach(row => {
+                const countCell = row.children[isWarehouse ? 3 : 4];
+                const count = parseInt(countCell.textContent) || 0;
+                total += count;
+            });
+            
+            // Update the totals in the footer
+            const totalShippedSpan = document.querySelector('.totals div:first-child span');
+            const totalConfirmedSpan = document.querySelector('.totals div:last-child span');
+            
+            if (totalShippedSpan) {
+                totalShippedSpan.textContent = total;
+            }
+            if (totalConfirmedSpan) {
+                totalConfirmedSpan.textContent = total;
+            }
+        }
+
+        // Also update totals when manually editing count cells
+        function addCountCellListeners() {
+            const tbody = document.getElementById("excel-table");
+            const rows = tbody.getElementsByTagName("tr");
+            const isWarehouse = document.getElementById('templateToggle').checked;
+            
+            Array.from(rows).forEach(row => {
+                const countCell = row.children[isWarehouse ? 3 : 4];
+                countCell.addEventListener('input', updateTotals);
+            });
         }
     </script>
 </body>
