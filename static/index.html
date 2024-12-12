@@ -3,51 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Retail</title>
+    <title>Picklist / Pallet Confirmation</title>
     <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        
+        .header {
+            text-align: center;
+            background-color: #D3D3D3;
+            padding: 8px;
+            font-weight: normal;
+            border: 1px solid black;
+            margin-bottom: 0;
+        }
+        
+        .order-info {
+            margin: 0;
+            padding: 8px;
+            background-color: white;
+            border-left: 1px solid black;
+            border-right: 1px solid black;
+            border-bottom: 1px solid black;
+        }
+        
         table {
             border-collapse: collapse;
             width: 100%;
-            margin-top: 20px;
+            margin-top: 0;
         }
-        th, td {
-            border: 1px solid #ddd;
+        
+        th {
+            background-color: black;
+            color: white;
             padding: 8px;
             text-align: center;
+            border: 1px solid black;
         }
-        th {
-            background-color: #f4f4f4;
+        
+        td {
+            border: 1px solid black;
+            padding: 8px;
+            background-color: white;
         }
-        td.editable:hover {
-            background-color: #f9f9f9;
-            cursor: pointer;
+        
+        tr:nth-child(odd) td {
+            background-color: #D3D3D3;
         }
-          /* Specific styles for A4 to G29 */
-        tr:nth-child(n+3):nth-child(-n+29) td:not(:nth-child(8)) {
-        border: 1px solid black;
-    }
-         /* Different color for other cells */
-        td, th {
-            border: 1px solid #ccc; /* Default lighter border for other cells */
+        
+        select {
+            width: 100%;
+            padding: 0;
+            border: none;
+            background-color: transparent;
+            font-family: inherit;
+            font-size: inherit;
         }
-            /* Set specific column widths */
-        td:nth-child(1), th:nth-child(1) { /* Column A */
-            width: 20%; /* Adjust as needed */
+        
+        select:focus {
+            outline: none;
         }
-
-        td:nth-child(2), th:nth-child(2) { /* Column B */
-            width: 20%; /* Adjust as needed */
+        
+        /* Make contenteditable areas look seamless */
+        [contenteditable="true"] {
+            outline: none;
         }
-        tr:nth-child(n+5):nth-child(-n+30):nth-child(odd) {
-            background-color: #D4D4D4;
+        
+        /* Ensure select inherits row background color */
+        tr:nth-child(odd) td select {
+            background-color: #D3D3D3;
         }
-
-      
+        
+        tr:nth-child(even) td select {
+            background-color: white;
+        }
     </style>
 </head>
 <body>
-    <h1>Retail Sheet Editor</h1>
-    <table id="excel-table"></table>
+    <div class="header">
+        PICKLIST / PALLET CONFIRMATION LIST
+    </div>
+    <div class="order-info">
+        Processed By: <span contenteditable="true"></span>
+        Order Type PO/SO#: <span contenteditable="true"></span>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>SKU</th>
+                <th>LOT</th>
+                <th>B/B</th>
+                <th>U/M</th>
+                <th>COUNT</th>
+            </tr>
+        </thead>
+        <tbody id="excel-table">
+            <!-- Table rows will be dynamically inserted here -->
+        </tbody>
+    </table>
 
     <script>
         const SKUMAP = {
@@ -93,19 +148,22 @@
             "860008221971": "SK-PW-RL",
         };
 
+        let LOT_CODES = {};  // Will be populated from the server
+
         let tableData = [];
         let debounceTimeout = null;
 
         // Load data from the backend
         async function loadData() {
             try {
+                await loadLotCodes();  // Load lot codes first
                 const response = await fetch("http://127.0.0.1:5000/load");
                 const result = await response.json();
 
                 if (result.status === "success") {
                     tableData = result.data;
                     renderTable(tableData);
-                    observeTableChanges(); // Start observing table changes
+                    observeTableChanges();
                 } else {
                     console.error("Failed to load data:", result.message);
                     alert("Failed to load data: " + result.message);
@@ -118,42 +176,176 @@
 
         // Render the table
         function renderTable(data) {
-            const table = document.getElementById("excel-table");
-            table.innerHTML = ""; // Clear the table
+            const tbody = document.getElementById("excel-table");
+            tbody.innerHTML = "";
 
-            data.forEach((row, rowIndex) => {
+            // Function to create a new row
+            function createRow() {
                 const tr = document.createElement("tr");
+                
+                // SKU cell with contenteditable
+                const skuTd = document.createElement("td");
+                skuTd.contentEditable = true;
+                skuTd.addEventListener("input", handleSkuInput);
+                skuTd.addEventListener("input", checkForEmptyRow);
+                tr.appendChild(skuTd);
+                
+                // LOT cell with dropdown
+                const lotTd = document.createElement("td");
+                const lotSelect = document.createElement("select");
+                lotSelect.appendChild(new Option("", ""));
+                lotTd.appendChild(lotSelect);
+                tr.appendChild(lotTd);
+                
+                // B/B cell
+                const bbTd = document.createElement("td");
+                bbTd.contentEditable = true;
+                bbTd.addEventListener("input", checkForEmptyRow);
+                tr.appendChild(bbTd);
+                
+                // U/M cell
+                const umTd = document.createElement("td");
+                umTd.contentEditable = true;
+                umTd.addEventListener("input", checkForEmptyRow);
+                tr.appendChild(umTd);
+                
+                // COUNT cell with default value 1
+                const countTd = document.createElement("td");
+                countTd.contentEditable = true;
+                countTd.addEventListener("input", checkForEmptyRow);
+                countTd.textContent = "1";  // Set default count to 1
+                tr.appendChild(countTd);
+                
+                return tr;
+            }
 
-                row.forEach((cell, colIndex) => {
-                    if (cell === null) {
-                        return; // Skip merged cells
-                    }
-
-                    const td = document.createElement("td");
-                    td.contentEditable = true;
-                    td.textContent = cell.value || ""; // Show empty cells as blank
-                    td.className = "editable";
-
-                    // Update tableData on input and apply SKU mapping
-                    td.addEventListener("input", () => {
-                        const inputValue = td.textContent.trim();
-                        if (
-                            inputValue.length === 12 &&
-                            inputValue.startsWith("8") &&
-                            SKUMAP[inputValue]
-                        ) {
-                            td.textContent = SKUMAP[inputValue]; // Update cell with mapped SKU
-                            tableData[rowIndex][colIndex].value = SKUMAP[inputValue];
-                        } else {
-                            tableData[rowIndex][colIndex].value = inputValue;
-                        }
-                        saveData(); // Trigger save after every input
-                    });
-
-                    tr.appendChild(td);
+            // Function to check if we need to add a new empty row
+            function checkForEmptyRow() {
+                const tbody = document.getElementById("excel-table");
+                const rows = tbody.getElementsByTagName("tr");
+                const lastRow = rows[rows.length - 1];
+                
+                // Check if the last row has any content
+                const isEmpty = Array.from(lastRow.children).every(cell => {
+                    const content = cell.tagName === 'TD' ? 
+                        (cell.querySelector('select')?.value || cell.textContent) : 
+                        cell.textContent;
+                    return !content.trim();
                 });
 
-                table.appendChild(tr);
+                // If last row is not empty, add a new empty row
+                if (!isEmpty) {
+                    tbody.appendChild(createRow());
+                }
+                
+                // Optional: Remove any empty rows except the last one
+                for (let i = rows.length - 2; i >= 0; i--) {
+                    const row = rows[i];
+                    const rowIsEmpty = Array.from(row.children).every(cell => {
+                        const content = cell.tagName === 'TD' ? 
+                            (cell.querySelector('select')?.value || cell.textContent) : 
+                            cell.textContent;
+                        return !content.trim();
+                    });
+                    if (rowIsEmpty && i < rows.length - 1) {
+                        row.remove();
+                    }
+                }
+            }
+
+            // Add initial rows (minimum 20 or more if needed)
+            const minRows = 20;
+            for (let i = 0; i < Math.max(minRows, (data?.length || 0) + 1); i++) {
+                tbody.appendChild(createRow());
+            }
+
+            // Initial check for empty row
+            checkForEmptyRow();
+        }
+
+        function handleSkuInput(event) {
+            const td = event.target;
+            const tr = td.parentElement;
+            const lotSelect = tr.children[1].querySelector("select");
+            const inputValue = td.textContent.trim();
+
+            if (inputValue.length === 12 && inputValue.startsWith("8") && SKUMAP[inputValue]) {
+                const skuName = SKUMAP[inputValue];
+                
+                // Check if this SKU already exists in the table
+                const tbody = document.getElementById("excel-table");
+                const rows = tbody.getElementsByTagName("tr");
+                let existingRow = null;
+                
+                // Look for existing row with same SKU and lot number
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
+                    const rowSku = row.children[0].textContent.trim();
+                    const rowLot = row.children[1].querySelector('select')?.value;
+                    
+                    if (rowSku === skuName && row !== tr) {
+                        // If lot hasn't been selected in current row yet, just use existing row's lot
+                        if (!lotSelect.value && rowLot) {
+                            existingRow = row;
+                            break;
+                        }
+                        // If lots match (including both being empty), use this row
+                        if (lotSelect.value === rowLot) {
+                            existingRow = row;
+                            break;
+                        }
+                    }
+                }
+
+                if (existingRow) {
+                    // Add the counts together
+                    const existingCount = parseInt(existingRow.children[4].textContent) || 0;
+                    const newCount = parseInt(tr.children[4].textContent) || 1;
+                    existingRow.children[4].textContent = (existingCount + newCount).toString();
+                    
+                    // Clear the current row if it's not the last row
+                    if (tr !== rows[rows.length - 1]) {
+                        tr.remove();
+                    } else {
+                        // If it's the last row, just clear it
+                        td.textContent = "";
+                        lotSelect.value = "";
+                        tr.children[2].textContent = "";
+                        tr.children[3].textContent = "";
+                        tr.children[4].textContent = "1";  // Reset to default count
+                    }
+                } else {
+                    // No existing row found, proceed with normal SKU update
+                    td.textContent = skuName;
+                    updateLotOptions(lotSelect, skuName);
+                    
+                    // Ensure count is at least 1
+                    const countCell = tr.children[4];
+                    if (!countCell.textContent.trim()) {
+                        countCell.textContent = "1";
+                    }
+                }
+            }
+        }
+
+        // Add this helper function
+        function updateLotOptions(select, sku) {
+            console.log("Updating options for SKU:", sku); // Debug log
+            select.innerHTML = ""; // Clear existing options
+            select.appendChild(new Option("", "")); // Add empty option
+            
+            // Try to find matching lot codes, accounting for case differences
+            const normalizedSku = sku?.toString().toUpperCase().trim();
+            const matchingSku = Object.keys(LOT_CODES).find(
+                key => key.toUpperCase().trim() === normalizedSku
+            );
+            
+            console.log("Matching SKU found:", matchingSku); // Debug log
+            const lotCodes = matchingSku ? LOT_CODES[matchingSku] : [];
+            console.log("Found lot codes:", lotCodes); // Debug log
+            
+            lotCodes.forEach(lot => {
+                select.appendChild(new Option(lot, lot));
             });
         }
 
@@ -202,6 +394,23 @@
 
         // Load data when the page is loaded
         window.onload = loadData;
+
+        // Add this function after loadData():
+        async function loadLotCodes() {
+            try {
+                const response = await fetch("http://127.0.0.1:5000/get-lot-codes");
+                const result = await response.json();
+
+                if (result.status === "success") {
+                    LOT_CODES = result.data;
+                    console.log("Loaded lot codes:", LOT_CODES);  // Debug print
+                } else {
+                    console.error("Failed to load lot codes:", result.message);
+                }
+            } catch (error) {
+                console.error("Error loading lot codes:", error);
+            }
+        }
     </script>
 </body>
 </html>

@@ -147,6 +147,61 @@ def load_data():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
 
+@app.route('/get-lot-codes', methods=['GET'])
+def get_lot_codes():
+    try:
+        wb = load_workbook('LotCode.xlsx')
+        ws = wb.active
+        
+        lot_codes = {}
+        sku_columns = []  # Will store column indices that contain SKUs
+        current_sku = None
+        
+        # Find all SKU columns from the header row
+        for col_idx, cell in enumerate(next(ws.rows)):
+            if cell.value and 'SKU' in str(cell.value).upper():
+                sku_columns.append(col_idx)
+        
+        print(f"Found SKU columns at indices: {sku_columns}")  # Debug print
+        
+        # Process each row starting from row 5
+        for row in ws.iter_rows(min_row=5):
+            # Check each SKU column in this row
+            for col_idx in sku_columns:
+                sku = row[col_idx].value
+                lot_col_idx = col_idx + 1  # Lot column is next to SKU column
+                
+                if lot_col_idx < len(row):  # Make sure lot column exists
+                    lot = row[lot_col_idx].value
+                    
+                    # Skip empty rows or rows without SKU/lot
+                    if not sku and not lot:
+                        continue
+                    
+                    # If we have a SKU (not empty and not 'Total')
+                    if sku and str(sku).strip() != 'Total':
+                        current_sku = str(sku).strip()
+                        # Normalize SKU name to match SKUMAP values
+                        if current_sku.lower().startswith('ts-'):
+                            current_sku = current_sku[3:]  # Remove 'TS-' prefix
+                        if current_sku not in lot_codes:
+                            lot_codes[current_sku] = []
+                        if lot and str(lot).strip().lower() != 'total':
+                            lot_codes[current_sku].append(str(lot))
+                    # If we have a lot number but no SKU (continuing previous SKU)
+                    elif not sku and lot and current_sku:
+                        if str(lot).strip().lower() != 'total':
+                            lot_codes[current_sku].append(str(lot))
+                    # If we hit 'Total', reset current_sku for this column
+                    elif sku and str(sku).strip() == 'Total':
+                        current_sku = None
+
+        print("Loaded lot codes:", lot_codes)  # Debug print
+        return jsonify({"status": "success", "data": lot_codes})
+    except Exception as e:
+        print("Error loading lot codes:", str(e))  # Debug print
+        return jsonify({"status": "error", "message": str(e)})
+
 if __name__ == "__main__":
     if not os.path.isfile(EXCEL_FILE_PATH):
         raise FileNotFoundError(f"The specified file '{EXCEL_FILE_PATH}' does not exist.")
