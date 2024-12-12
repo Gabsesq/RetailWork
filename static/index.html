@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Picklist / Pallet Confirmation</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body {
             margin: 0;
@@ -98,27 +97,10 @@
             background-color: white;
         }
         
-        .settings-icon {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            font-size: 24px;
-            cursor: pointer;
-            color: #333;
-            transition: transform 0.3s ease;
-        }
-
-        .settings-icon:hover {
-            transform: rotate(45deg);
-        }
-
         .top-controls {
             position: absolute;
             top: 20px;
             right: 20px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
         }
 
         .toggle-container {
@@ -147,7 +129,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: #ccc;
+            background-color: #ff4444;
             transition: .4s;
             border-radius: 34px;
         }
@@ -214,7 +196,6 @@
             </label>
             <span class="template-label">WH</span>
         </div>
-        <i class="fas fa-cog settings-icon" id="settingsIcon"></i>
     </div>
     <div class="header">
         PICKLIST / PALLET CONFIRMATION LIST
@@ -358,14 +339,14 @@
         function handleSkuInput(event) {
             const td = event.target;
             const tr = td.parentElement;
-            const lotSelect = tr.children[1].querySelector("select");
+            const lotSelect = tr.children[1].querySelector('select');
             const lotCell = tr.children[1];
             const inputValue = td.textContent.trim();
             const isWarehouse = document.getElementById('templateToggle').checked;
             
             // Adjust cell references based on template type
-            const umCell = tr.children[2];  // U/M is the third column in warehouse mode
-            const countCell = tr.children[3];  // CNT1 is the fourth column in warehouse mode
+            const umCell = isWarehouse ? tr.children[2] : tr.children[3];  // Fix U/M cell reference
+            const countCell = isWarehouse ? tr.children[3] : tr.children[4];  // Fix count cell reference
             
             // Handle both WH- prefixed SKUs and regular barcodes
             if (inputValue.startsWith('WH-') || (inputValue.length === 12 && inputValue.startsWith("8") && SKUMAP[inputValue])) {
@@ -380,10 +361,10 @@
                     updateTotals();
                     return;
                 }
-                
+
                 // Store the scanned SKU for future reference
                 td.dataset.lastScannedSku = inputValue;
-                
+
                 // Check for existing rows with same SKU
                 const tbody = document.getElementById("excel-table");
                 const rows = tbody.getElementsByTagName("tr");
@@ -433,7 +414,7 @@
                             td.textContent = "";
                             td.dataset.lastScannedSku = "";
                             lotSelect.value = "";
-                            tr.children[2].textContent = "";
+                            tr.children[2].textContent = "";  // Clear B/B
                             umCell.textContent = "";
                             countCell.textContent = "";
                         }
@@ -448,12 +429,13 @@
                             lotCell.innerHTML = '';
                             lotCell.contentEditable = true;
                         }
-                        umCell.textContent = "CA";  // Set U/M in correct column
+                        umCell.textContent = "CA";  // Set U/M to CA for warehouse items
                     } else {
                         updateLotOptions(lotSelect, skuName);
-                        umCell.textContent = "EA";
+                        umCell.textContent = "EA";  // Set U/M to EA for retail items
                     }
                     
+                    // Initialize count to 1 for new entries
                     countCell.textContent = "1";
                     checkForEmptyRow();
                     updateTotals();
