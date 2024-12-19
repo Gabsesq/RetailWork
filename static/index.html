@@ -540,45 +540,70 @@
         }
 
         function normalizeSkuName(sku) {
-            return sku?.toString()
+            if (!sku) return '';
+            
+            let normalized = sku.toString()
                 .trim()
-                .replace(/^ts-/i, "TS-")  // Normalize TS- prefix
+                .toUpperCase()
+                .replace(/\s+/g, ' ');  // Normalize spaces first
+            
+            // Special handling for numeric prefixes (like 100-DR-HO)
+            if (/^\d+/.test(normalized)) {
+                return normalized;  // Keep the original format for numeric prefixes
+            }
+            
+            // Otherwise process normally
+            return normalized
+                .replace(/^TS-/i, "TS-")  // Normalize TS- prefix
                 .replace(/[&-]/g, ' ')    // Replace hyphens and ampersands with spaces
-                .replace(/\s+/g, ' ')     // Normalize spaces
                 .trim();
         }
 
         function updateLotOptions(select, sku) {
+            if (!select) {
+                console.error("Select element is null");
+                return;
+            }
+            
             console.log("\nUpdating options for SKU:", sku);
+            
             select.innerHTML = "";
             select.appendChild(new Option("", ""));
             
             const normalizedInputSku = normalizeSkuName(sku);
-            console.log("Normalized SKU:", normalizedInputSku);
-            console.log("Available SKUs:", Object.keys(LOT_CODES));
+            console.log("Normalized input SKU:", normalizedInputSku);
             
-            // Try exact match first
-            let matchingSku = Object.keys(LOT_CODES).find(key => 
-                normalizeSkuName(key) === normalizedInputSku
-            );
-            console.log("Exact match found:", matchingSku);
+            // Convert all LOT_CODES keys to normalized format for comparison
+            const normalizedLotCodes = {};
+            Object.keys(LOT_CODES).forEach(key => {
+                const normalizedKey = normalizeSkuName(key);
+                normalizedLotCodes[normalizedKey] = LOT_CODES[key];
+                console.log(`Normalized key "${key}" to "${normalizedKey}"`);  // Debug log
+            });
             
-            // If no exact match, try case-insensitive
-            if (!matchingSku) {
-                matchingSku = Object.keys(LOT_CODES).find(key => 
-                    normalizeSkuName(key).toUpperCase() === normalizedInputSku.toUpperCase()
-                );
-                console.log("Case-insensitive match found:", matchingSku);
-            }
+            console.log("Looking for:", normalizedInputSku);
             
-            if (matchingSku) {
-                console.log("Lot codes for", matchingSku, ":", LOT_CODES[matchingSku]);
-                Object.keys(LOT_CODES[matchingSku]).forEach(lot => {
-                    console.log("Adding lot option:", lot);
+            // Try direct match with normalized keys
+            if (normalizedLotCodes[normalizedInputSku]) {
+                console.log("Found exact match:", normalizedInputSku);
+                Object.entries(normalizedLotCodes[normalizedInputSku]).forEach(([lot, bb]) => {
+                    console.log(`Adding lot option: ${lot} (BB: ${bb})`);
                     select.appendChild(new Option(lot, lot));
                 });
             } else {
-                console.log("No matching SKU found in LOT_CODES");
+                // Try to find a case-insensitive match
+                const matchingKey = Object.keys(normalizedLotCodes).find(key => 
+                    key.toUpperCase() === normalizedInputSku.toUpperCase()
+                );
+                if (matchingKey) {
+                    console.log("Found case-insensitive match:", matchingKey);
+                    Object.entries(normalizedLotCodes[matchingKey]).forEach(([lot, bb]) => {
+                        console.log(`Adding lot option: ${lot} (BB: ${bb})`);
+                        select.appendChild(new Option(lot, lot));
+                    });
+                } else {
+                    console.log("No matching SKU found in LOT_CODES");
+                }
             }
         }
 
