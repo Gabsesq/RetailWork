@@ -433,177 +433,103 @@
         }
 
         function handleSkuInput(event) {
-            const td = event.target;
-            const tr = td.parentElement;
-            const lotSelect = tr.children[1].querySelector('select');
-            const lotCell = tr.children[1];
-            const inputValue = td.textContent.trim();
+            const row = event.target.parentElement.parentElement;
+            const skuCell = event.target;
+            const lotSelect = row.children[1].querySelector('select');
+            const sku = skuCell.textContent.trim();
+            
+            // Update lot options for this row regardless of whether SKU exists elsewhere
+            updateLotOptions(lotSelect, sku);
+            
+            // Always ensure there's a new row available
+            checkAndAddNewRow();
+            
+            // Don't remove or combine rows for duplicate SKUs
+            // Remove this block if it exists:
+            /*
+            const existingRows = document.querySelectorAll('tr');
+            for (let existingRow of existingRows) {
+                if (existingRow !== row && existingRow.children[0].textContent.trim() === sku) {
+                    // Don't combine or remove rows
+                }
+            }
+            */
+        }
+
+        function checkAndAddNewRow() {
+            const tbody = document.getElementById("excel-table");
+            const rows = tbody.getElementsByTagName("tr");
+            const lastRow = rows[rows.length - 1];
             const isWarehouse = document.getElementById('templateToggle').checked;
             
-            // Adjust cell references based on template type
-            const umCell = isWarehouse ? tr.children[2] : tr.children[3];  // Fix U/M cell reference
-            const countCell = isWarehouse ? tr.children[3] : tr.children[4];  // Fix count cell reference
-            
-            // Handle both WH- prefixed SKUs and regular barcodes
-            if (inputValue.startsWith('WH-') || (inputValue.length === 12 && inputValue.startsWith("8") && SKUMAP[inputValue])) {
-                let skuName = inputValue.startsWith('WH-') ? inputValue : SKUMAP[inputValue];
-                
-                // If the cell already contains this SKU name, just increment the count
-                if (td.dataset.lastScannedSku === inputValue) {
-                    const currentCount = parseInt(countCell.textContent) || 0;
-                    countCell.textContent = (currentCount + 1).toString();
-                    td.textContent = skuName;
-                    checkForEmptyRow();
-                    updateTotals();
-                    return;
+            // Check if the last row has any content
+            let hasContent = false;
+            Array.from(lastRow.children).forEach(cell => {
+                if (cell.querySelector('select')) {
+                    if (cell.querySelector('select').value) hasContent = true;
+                } else if (cell.textContent.trim()) {
+                    hasContent = true;
                 }
+            });
 
-                // Store the scanned SKU for future reference
-                td.dataset.lastScannedSku = inputValue;
-
-                // Check for existing rows with same SKU
-                const tbody = document.getElementById("excel-table");
-                const rows = tbody.getElementsByTagName("tr");
-                let existingRow = null;
-                
-                for (let i = 0; i < rows.length; i++) {
-                    const row = rows[i];
-                    const rowSku = row.children[0].textContent.trim();
-                    const rowLot = inputValue.startsWith('WH-') ? 
-                        row.children[1].textContent.trim() : 
-                        row.children[1].querySelector('select')?.value;
-                    
-                    if (rowSku === skuName && row !== tr) {
-                        if (inputValue.startsWith('WH-')) {
-                            if (!lotCell.textContent && rowLot) {
-                                existingRow = row;
-                                break;
-                            }
-                            if (lotCell.textContent === rowLot) {
-                                existingRow = row;
-                                break;
-                            }
-                        } else {
-                            if (!lotSelect.value && rowLot) {
-                                existingRow = row;
-                                break;
-                            }
-                            if (lotSelect.value === rowLot) {
-                                existingRow = row;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if (existingRow) {
-                    const existingCount = parseInt(existingRow.children[isWarehouse ? 3 : 4].textContent) || 0;
-                    const newCount = parseInt(countCell.textContent) || 1;
-                    existingRow.children[isWarehouse ? 3 : 4].textContent = (existingCount + newCount).toString();
-                    
-                    if (tr !== rows[rows.length - 1]) {
-                        tr.remove();
-                    } else {
-                        if (inputValue.startsWith('WH-')) {
-                            clearRow(tr);
-                        } else {
-                            td.textContent = "";
-                            td.dataset.lastScannedSku = "";
-                            lotSelect.value = "";
-                            tr.children[2].textContent = "";  // Clear B/B
-                            umCell.textContent = "";
-                            countCell.textContent = "";
-                        }
-                    }
-                    checkForEmptyRow();
-                    updateTotals();
-                } else {
-                    td.textContent = skuName;
-                    
-                    if (inputValue.startsWith('WH-')) {
-                        if (lotSelect) {
-                            lotCell.innerHTML = '';
-                            lotCell.contentEditable = true;
-                        }
-                        umCell.textContent = "CA";  // Set U/M to CA for warehouse items
-                    } else {
-                        updateLotOptions(lotSelect, skuName);
-                        umCell.textContent = "EA";  // Set U/M to EA for retail items
-                    }
-                    
-                    // Initialize count to 1 for new entries
-                    countCell.textContent = "1";
-                    checkForEmptyRow();
-                    updateTotals();
-                }
+            // If the last row has any content, add a new row
+            if (hasContent) {
+                console.log("Adding new row because last row has content");
+                const newRow = createRow(isWarehouse);
+                tbody.appendChild(newRow);
             }
         }
 
+        // Modify the updateCount function to handle duplicate SKUs
+        function updateCount(row) {
+            // Don't combine counts from duplicate SKUs
+            const countCell = row.children[isWarehouse ? 3 : 4];
+            const count = parseInt(countCell.textContent) || 0;
+            
+            // Update totals without combining duplicate SKUs
+            updateTotals();
+        }
+
         function normalizeSkuName(sku) {
-            if (!sku) return '';
-            
-            let normalized = sku.toString()
+            return sku?.toString()
                 .trim()
-                .toUpperCase()
-                .replace(/\s+/g, ' ');  // Normalize spaces first
-            
-            // Special handling for numeric prefixes (like 100-DR-HO)
-            if (/^\d+/.test(normalized)) {
-                return normalized;  // Keep the original format for numeric prefixes
-            }
-            
-            // Otherwise process normally
-            return normalized
-                .replace(/^TS-/i, "TS-")  // Normalize TS- prefix
+                .replace(/^ts-/i, "TS-")  // Normalize TS- prefix
                 .replace(/[&-]/g, ' ')    // Replace hyphens and ampersands with spaces
+                .replace(/\s+/g, ' ')     // Normalize spaces
                 .trim();
         }
 
         function updateLotOptions(select, sku) {
-            if (!select) {
-                console.error("Select element is null");
-                return;
-            }
-            
             console.log("\nUpdating options for SKU:", sku);
-            
             select.innerHTML = "";
             select.appendChild(new Option("", ""));
             
             const normalizedInputSku = normalizeSkuName(sku);
-            console.log("Normalized input SKU:", normalizedInputSku);
+            console.log("Normalized SKU:", normalizedInputSku);
+            console.log("Available SKUs:", Object.keys(LOT_CODES));
             
-            // Convert all LOT_CODES keys to normalized format for comparison
-            const normalizedLotCodes = {};
-            Object.keys(LOT_CODES).forEach(key => {
-                const normalizedKey = normalizeSkuName(key);
-                normalizedLotCodes[normalizedKey] = LOT_CODES[key];
-                console.log(`Normalized key "${key}" to "${normalizedKey}"`);  // Debug log
-            });
+            // Try exact match first
+            let matchingSku = Object.keys(LOT_CODES).find(key => 
+                normalizeSkuName(key) === normalizedInputSku
+            );
+            console.log("Exact match found:", matchingSku);
             
-            console.log("Looking for:", normalizedInputSku);
+            // If no exact match, try case-insensitive
+            if (!matchingSku) {
+                matchingSku = Object.keys(LOT_CODES).find(key => 
+                    normalizeSkuName(key).toUpperCase() === normalizedInputSku.toUpperCase()
+                );
+                console.log("Case-insensitive match found:", matchingSku);
+            }
             
-            // Try direct match with normalized keys
-            if (normalizedLotCodes[normalizedInputSku]) {
-                console.log("Found exact match:", normalizedInputSku);
-                Object.entries(normalizedLotCodes[normalizedInputSku]).forEach(([lot, bb]) => {
-                    console.log(`Adding lot option: ${lot} (BB: ${bb})`);
+            if (matchingSku) {
+                console.log("Lot codes for", matchingSku, ":", LOT_CODES[matchingSku]);
+                Object.keys(LOT_CODES[matchingSku]).forEach(lot => {
+                    console.log("Adding lot option:", lot);
                     select.appendChild(new Option(lot, lot));
                 });
             } else {
-                // Try to find a case-insensitive match
-                const matchingKey = Object.keys(normalizedLotCodes).find(key => 
-                    key.toUpperCase() === normalizedInputSku.toUpperCase()
-                );
-                if (matchingKey) {
-                    console.log("Found case-insensitive match:", matchingKey);
-                    Object.entries(normalizedLotCodes[matchingKey]).forEach(([lot, bb]) => {
-                        console.log(`Adding lot option: ${lot} (BB: ${bb})`);
-                        select.appendChild(new Option(lot, lot));
-                    });
-                } else {
-                    console.log("No matching SKU found in LOT_CODES");
-                }
+                console.log("No matching SKU found in LOT_CODES");
             }
         }
 
