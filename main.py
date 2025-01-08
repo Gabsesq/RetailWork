@@ -1,9 +1,13 @@
 from flask import Flask, jsonify, send_from_directory, request
 from openpyxl import load_workbook
 from flask_cors import CORS
+import os
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
+
+# Use environment variable for port
+port = int(os.environ.get("PORT", 5000))
 
 # SKU mapping
 SKUMAP = {
@@ -120,5 +124,5 @@ def get_lot_codes():
         return jsonify({"status": "error", "message": str(e)})
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=port)
 
