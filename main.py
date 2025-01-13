@@ -4,7 +4,12 @@ from flask_cors import CORS
 import os
 
 app = Flask(__name__, static_folder='static')
-CORS(app)
+CORS(app, resources={
+    r"/get-lot-codes": {
+        "origins": ["https://retailpr-f15aaf777d4b.herokuapp.com", 
+                   "http://localhost:5000"]
+    }
+})
 
 # Use environment variable for port
 port = int(os.environ.get("PORT", 5000))

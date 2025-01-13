@@ -627,12 +627,22 @@
         // Add this function after loadData():
         async function loadLotCodes() {
             try {
-                const response = await fetch("https://retailpr.herokuapp.com/get-lot-codes");
+                console.log("Attempting to fetch lot codes...");
+                const response = await fetch("https://retailpr-f15aaf777d4b.herokuapp.com/get-lot-codes", {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                console.log("Response received:", response.status);
+                
                 const result = await response.json();
+                console.log("Response data:", result);
 
                 if (result.status === "success") {
                     LOT_CODES = result.data;
-                    console.log("Loaded lot codes:", LOT_CODES);  // Debug print
+                    console.log("Loaded lot codes:", LOT_CODES);
                 } else {
                     console.error("Failed to load lot codes:", result.message);
                 }
