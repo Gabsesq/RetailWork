@@ -18,6 +18,7 @@
             font-weight: normal;
             border: 1px solid black;
             margin-bottom: 0;
+            font-family: Arial, sans-serif;
         }
         
         .order-info {
@@ -357,6 +358,89 @@
                 display: none;
             }
         }
+
+        .info-row {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .input-field {
+            min-width: 150px;
+            border-bottom: 1px solid #ccc;
+            padding: 2px 4px;
+        }
+
+        .so-number-box {
+            min-width: 120px;
+            padding: 4px 8px;
+            background-color: #f0f0f0;
+            border: 1px solid #000;
+            border-radius: 4px;
+            display: inline-block;
+            font-family: monospace;
+            font-size: 14px;
+        }
+
+        .so-number-box:focus {
+            outline: none;
+            background-color: #fff;
+            border-color: #2196F3;
+        }
+
+        /* Update print styles */
+        @media print {
+            .so-number-box {
+                border: 1px solid black !important;
+                background-color: white !important;
+            }
+        }
+
+        /* Add signature line styles */
+        .signature-line {
+            margin: 40px 0 20px 0;
+            padding: 0 20px;
+        }
+
+        .signature-container {
+            position: relative;
+            max-width: 300px;
+        }
+
+        .line {
+            border-bottom: 1px solid black;
+            width: 100%;
+            margin-bottom: 4px;
+        }
+
+        .signature-label {
+            position: absolute;
+            bottom: -20px;
+            left: 0;
+            font-size: 12px;
+            color: #333;
+        }
+
+        /* Update print styles */
+        @media print {
+            .signature-line {
+                margin: 30px 0 20px 0;
+            }
+            
+            .line {
+                border-bottom: 1px solid black !important;
+            }
+            
+            .signature-label {
+                color: black !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -373,8 +457,14 @@
 
     <h1 class="header">PICKLIST / PALLET CONFIRMATION</h1>
     <div class="order-info">
-        Processed By: <span contenteditable="true"></span>
-        Order Type PO/SO#: <span contenteditable="true"></span>
+        <div class="info-row">
+            <div class="info-item">
+                Processed By: <span contenteditable="true" class="input-field"></span>
+            </div>
+            <div class="info-item">
+                Order Type PO/SO#: <span contenteditable="true" class="so-number-box"></span>
+            </div>
+        </div>
     </div>
     <table>
         <thead>
@@ -390,6 +480,13 @@
             <!-- Table rows will be dynamically inserted here -->
         </tbody>
     </table>
+
+    <div class="signature-line">
+        <div class="signature-container">
+            <div class="line"></div>
+            <span class="signature-label">Signature</span>
+        </div>
+    </div>
 
     <div class="button-container">
         <button id="printButton" class="action-button">Print</button>
