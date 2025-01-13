@@ -440,50 +440,38 @@
             
             // Check for pattern: 1 followed by 12 digit number starting with 8
             if (inputValue.length === 13 && inputValue.startsWith("1") && inputValue.substring(1).startsWith("8")) {
-                // Extract the barcode part (remove the leading 1)
                 const barcode = inputValue.substring(1);
-                console.log("Detected barcode with quantity prefix:", barcode);
-                console.log("SKU mapping:", SKUMAP[barcode]);
-                
                 if (SKUMAP[barcode]) {
                     const skuName = SKUMAP[barcode];
-                    
-                    // Always create a new row for quantities prefixed with 1
                     td.textContent = skuName;
                     
-                    // Set default U/M based on template
                     const umCell = isWarehouse ? tr.children[2] : tr.children[3];
                     umCell.textContent = isWarehouse ? "CA" : "EA";
                     
-                    // Set default count to 1
                     const countCell = isWarehouse ? tr.children[3] : tr.children[4];
                     if (!countCell.textContent) {
                         countCell.textContent = "1";
                     }
                     
-                    // Update lot options if it's retail template
                     if (!isWarehouse) {
                         const lotSelect = tr.children[1].querySelector('select');
                         if (lotSelect) {
-                            updateLotOptions(lotSelect, skuName);
+                            updateLotOptions(lotSelect, skuName);  // Pass SKU name instead of barcode
                         }
                     }
                     
                     checkForEmptyRow();
                     updateTotals();
-                    return; // Exit early to prevent combining
+                    return;
                 }
             }
             
             // Original handling for regular 12-digit barcodes
             if (inputValue.length === 12 && inputValue.startsWith("8")) {
-                console.log("Detected barcode:", inputValue);
-                console.log("SKU mapping:", SKUMAP[inputValue]);
-                
                 if (SKUMAP[inputValue]) {
                     const skuName = SKUMAP[inputValue];
                     
-                    // Check for existing rows with same SKU (in reverse order)
+                    // Check for existing rows with same SKU
                     const rows = Array.from(document.querySelectorAll('#excel-table tr')).reverse();
                     let existingRow = null;
                     
@@ -495,12 +483,10 @@
                     }
                     
                     if (existingRow) {
-                        // Increment count in most recent existing row
                         const countCell = existingRow.children[isWarehouse ? 3 : 4];
                         const currentCount = parseInt(countCell.textContent) || 0;
                         countCell.textContent = currentCount + 1;
                         
-                        // Clear the current row
                         Array.from(tr.children).forEach(cell => {
                             if (cell.querySelector('select')) {
                                 cell.querySelector('select').value = '';
@@ -509,42 +495,35 @@
                             }
                         });
                     } else {
-                        // Replace barcode with SKU name for new row
                         td.textContent = skuName;
                         
-                        // Set default U/M based on template
                         const umCell = isWarehouse ? tr.children[2] : tr.children[3];
                         umCell.textContent = isWarehouse ? "CA" : "EA";
                         
-                        // Set default count to 1
                         const countCell = isWarehouse ? tr.children[3] : tr.children[4];
                         if (!countCell.textContent) {
                             countCell.textContent = "1";
                         }
                         
-                        // Update lot options if it's retail template
                         if (!isWarehouse) {
                             const lotSelect = tr.children[1].querySelector('select');
                             if (lotSelect) {
-                                updateLotOptions(lotSelect, skuName);
+                                updateLotOptions(lotSelect, skuName);  // Pass SKU name instead of barcode
                             }
                         }
                     }
                     
                     checkForEmptyRow();
                     updateTotals();
-                } else {
-                    console.warn("No SKU mapping found for barcode:", inputValue);
                 }
             }
             
-            // Update lot options for this row regardless of whether SKU exists elsewhere
+            // Update lot options for manual SKU entry
             const lotSelect = tr.children[1].querySelector('select');
             if (lotSelect) {
                 updateLotOptions(lotSelect, inputValue);
             }
             
-            // Always ensure there's a new row available
             checkForEmptyRow();
         }
 
@@ -583,12 +562,14 @@
         }
 
         function normalizeSkuName(sku) {
-            return sku?.toString()
+            if (!sku) return '';
+            return sku.toString()
                 .trim()
                 .replace(/^ts-/i, "TS-")  // Normalize TS- prefix
                 .replace(/[&-]/g, ' ')    // Replace hyphens and ampersands with spaces
                 .replace(/\s+/g, ' ')     // Normalize spaces
-                .trim();
+                .trim()
+                .toUpperCase();  // Convert everything to uppercase for comparison
         }
 
         function updateLotOptions(select, sku) {
@@ -596,32 +577,44 @@
             select.innerHTML = "";
             select.appendChild(new Option("", ""));
             
-            const normalizedInputSku = normalizeSkuName(sku);
-            console.log("Normalized SKU:", normalizedInputSku);
-            console.log("Available SKUs:", Object.keys(LOT_CODES));
+            if (!sku) return;
             
-            // Try exact match first
-            let matchingSku = Object.keys(LOT_CODES).find(key => 
-                normalizeSkuName(key) === normalizedInputSku
-            );
-            console.log("Exact match found:", matchingSku);
-            
-            // If no exact match, try case-insensitive
-            if (!matchingSku) {
-                matchingSku = Object.keys(LOT_CODES).find(key => 
-                    normalizeSkuName(key).toUpperCase() === normalizedInputSku.toUpperCase()
-                );
-                console.log("Case-insensitive match found:", matchingSku);
+            // If input is a barcode, convert it to SKU name using SKUMAP
+            let skuName = sku;
+            if (sku.length === 12 && sku.startsWith('8')) {
+                skuName = SKUMAP[sku] || sku;
             }
             
-            if (matchingSku) {
-                console.log("Lot codes for", matchingSku, ":", LOT_CODES[matchingSku]);
-                Object.keys(LOT_CODES[matchingSku]).forEach(lot => {
-                    console.log("Adding lot option:", lot);
-                    select.appendChild(new Option(lot, lot));
+            const normalizedInputSku = normalizeSkuName(skuName);
+            console.log("Original SKU/Barcode:", sku);
+            console.log("Converted SKU Name:", skuName);
+            console.log("Normalized Input SKU:", normalizedInputSku);
+            
+            // Debug: Print all available SKUs and their normalized versions
+            console.log("Available SKUs:");
+            Object.keys(LOT_CODES).forEach(key => {
+                console.log(`${key} -> ${normalizeSkuName(key)}`);
+            });
+            
+            // Find matching SKU
+            const matchingSku = Object.keys(LOT_CODES).find(key => 
+                normalizeSkuName(key) === normalizedInputSku
+            );
+            
+            console.log("Matching SKU found:", matchingSku);
+            
+            if (matchingSku && LOT_CODES[matchingSku]) {
+                console.log("Adding lot codes for", matchingSku, ":", LOT_CODES[matchingSku]);
+                // Sort lot codes before adding to dropdown
+                const sortedLots = Object.keys(LOT_CODES[matchingSku]).sort();
+                sortedLots.forEach(lot => {
+                    const option = new Option(lot, lot);
+                    select.appendChild(option);
+                    console.log("Added lot option:", lot);
                 });
             } else {
                 console.log("No matching SKU found in LOT_CODES");
+                console.log("LOT_CODES keys:", Object.keys(LOT_CODES));
             }
         }
 
@@ -656,12 +649,13 @@
             const skuName = tr.children[0].textContent.trim();
             const bbCell = tr.children[2];  // B/B cell
             
-            // Find matching SKU using normalized comparison
+            const normalizedInputSku = normalizeSkuName(skuName);
             const matchingSku = Object.keys(LOT_CODES).find(key => 
-                normalizeSkuName(key).toUpperCase() === normalizeSkuName(skuName).toUpperCase()
+                normalizeSkuName(key) === normalizedInputSku
             );
             
             console.log("Lot Selection - SKU:", skuName);
+            console.log("Normalized SKU:", normalizedInputSku);
             console.log("Matching SKU:", matchingSku);
             console.log("Selected Lot:", selectedLot);
             
