@@ -361,29 +361,37 @@
 
         .info-row {
             display: flex;
-            gap: 40px;
-            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .info-item {
+            flex: 1;
+            min-width: 200px;
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
+        .label {
+            white-space: nowrap;
+        }
+
         .input-field {
-            min-width: 150px;
+            flex: 1;
+            min-width: 50px;
             border-bottom: 1px solid #ccc;
             padding: 2px 4px;
         }
 
         .so-number-box {
-            min-width: 120px;
+            flex: 1;
+            min-width: 50px;
             padding: 4px 8px;
             background-color: #f0f0f0;
             border: 1px solid #000;
             border-radius: 4px;
-            display: inline-block;
             font-family: monospace;
             font-size: 14px;
         }
@@ -441,6 +449,21 @@
                 color: black !important;
             }
         }
+
+        /* Add responsive styles */
+        @media screen and (max-width: 768px) {
+            .info-row {
+                flex-direction: column;
+            }
+            
+            .info-item {
+                width: 100%;
+            }
+            
+            .input-field, .so-number-box {
+                min-width: 0;
+            }
+        }
     </style>
 </head>
 <body>
@@ -459,10 +482,16 @@
     <div class="order-info">
         <div class="info-row">
             <div class="info-item">
-                Processed By: <span contenteditable="true" class="input-field"></span>
+                <span class="label">Processed By:</span>
+                <span contenteditable="true" class="input-field"></span>
             </div>
             <div class="info-item">
-                Order Type PO/SO#: <span contenteditable="true" class="so-number-box"></span>
+                <span class="label">Order Type:</span>
+                <span contenteditable="true" class="input-field"></span>
+            </div>
+            <div class="info-item">
+                <span class="label">PO/SO#:</span>
+                <span contenteditable="true" class="so-number-box"></span>
             </div>
         </div>
     </div>
