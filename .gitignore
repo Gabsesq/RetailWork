@@ -4,6 +4,7 @@
 !Procfile
 !runtime.txt
 !main.py
+!inventory_db.py
 !static/
 !static/*
 !LotCode.xlsx

@@ -44,7 +44,11 @@ print(f"Recipient: {os.getenv('MAIL_RECIPIENT')}\n")
 
 # Create tables
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+    except:
+        # If tables exist, just pass
+        pass
 
 # Add new routes for inventory management
 @app.route('/api/inventory', methods=['GET'])
