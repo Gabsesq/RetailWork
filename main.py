@@ -6,8 +6,12 @@ import os
 app = Flask(__name__, static_folder='static')
 CORS(app, resources={
     r"/get-lot-codes": {
-        "origins": ["https://retailpr-f15aaf777d4b.herokuapp.com", 
-                   "http://localhost:5000"]
+        "origins": [
+            "https://your-heroku-app-name.herokuapp.com",
+            "https://retailpr-f15aaf777d4b.herokuapp.com",
+            "http://localhost:5000",
+            "http://127.0.0.1:5000"
+        ]
     }
 })
 

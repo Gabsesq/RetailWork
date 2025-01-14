@@ -1,1 +1,9 @@
-service_account.json
+# Ignore everything except what we need
+*
+!requirements.txt
+!Procfile
+!runtime.txt
+!main.py
+!static/
+!static/*
+!LotCode.xlsx

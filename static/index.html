@@ -523,6 +523,10 @@
     </div>
 
     <script>
+        const BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+            ? 'http://127.0.0.1:5000'
+            : 'https://retailpr-f15aaf777d4b.herokuapp.com';
+
         const SKUMAP = {
             "860009592568": "Post-Bio-GH",
             "860009592551": "Omega-Alg",
@@ -886,7 +890,7 @@
         async function loadLotCodes() {
             try {
                 console.log("Attempting to fetch lot codes...");
-                const response = await fetch("http://127.0.0.1:5000/get-lot-codes");
+                const response = await fetch(`${BASE_URL}/get-lot-codes`);
                 console.log("Response status:", response.status);
                 
                 const result = await response.json();
