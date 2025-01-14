@@ -108,18 +108,10 @@ def place_order():
             quantity=data['quantity']
         )
         
-        # Update stock
-        product = Product.query.get(data['product_id'])
-        if product.stock >= data['quantity']:
-            product.stock -= data['quantity']
-            db.session.add(order)
-            db.session.commit()
-            return jsonify({'success': True})
-        else:
-            return jsonify({
-                'success': False,
-                'message': 'Not enough stock'
-            }), 400
+        # Just track the order without updating stock
+        db.session.add(order)
+        db.session.commit()
+        return jsonify({'success': True})
             
     except Exception as e:
         db.session.rollback()

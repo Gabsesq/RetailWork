@@ -369,7 +369,7 @@
                 return;
             }
 
-            // Check total items limit (let's say 10 items total)
+            // Check total items limit
             const TOTAL_ITEMS_LIMIT = 3;
             const currentTotal = getTotalItemsCount();
             if (change > 0 && (currentTotal + change) > TOTAL_ITEMS_LIMIT) {
@@ -380,13 +380,6 @@
             // Validate the new quantity
             if (newQuantity >= 0 && newQuantity <= product.stock) {
                 product.orderQuantity = newQuantity;
-                
-                // If quantity is greater than 0, place the order
-                if (change > 0) {
-                    placeOrder(productId, 1);
-                } else if (change < 0) {
-                    placeOrder(productId, -1);
-                }
             }
 
             // Update the display
