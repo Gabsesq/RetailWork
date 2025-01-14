@@ -47,9 +47,25 @@ print(f"Recipient: {os.getenv('MAIL_RECIPIENT')}\n")
 with app.app_context():
     try:
         db.create_all()
+        # Check if we need to add products
+        if Product.query.count() == 0:
+            products = [
+                Product(name='Post-Bio-GH', stock=10),
+                Product(name='Omega-Alg', stock=10),
+                Product(name='Edi-DR-BC-SML', stock=10),
+                Product(name='Edi-DR-BC-LRG', stock=10),
+                Product(name='TS-Edi-HJ-PB', stock=10),
+                Product(name='Edi-HJ-PB-SML', stock=10),
+                Product(name='Edi-HJ-PB-LRG', stock=10),
+                Product(name='Edi-HJ-PB-FAM', stock=10),
+                Product(name='600-HJR-HO', stock=10)
+            ]
+            db.session.add_all(products)
+            db.session.commit()
+            print("Added initial products to database")
     except Exception as e:
         print(f"Database initialization error: {e}")
-        pass
+        db.session.rollback()
 
 # Add new routes for inventory management
 @app.route('/api/inventory', methods=['GET'])
