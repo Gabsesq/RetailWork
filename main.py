@@ -6,6 +6,7 @@ import os
 from flask_mail import Mail, Message
 from dotenv import load_dotenv
 from sqlalchemy import text
+import pandas as pd
 
 # Load environment variables
 load_dotenv()
@@ -261,6 +262,35 @@ Additional Notes:
         print(f"Error args: {e.args}")
         return jsonify({
             'success': False,
+            'message': str(e)
+        }), 500
+
+@app.route('/api/lotcodes', methods=['GET'])
+def get_lotcodes():
+    try:
+        # Read the Excel file
+        df = pd.read_excel('LotCode.xlsx')
+        
+        # Convert DataFrame to a dictionary format
+        lot_codes = {}
+        for _, row in df.iterrows():
+            sku = row['SKU']
+            lot = row['LOT']
+            bb = row['B/B']
+            
+            if sku not in lot_codes:
+                lot_codes[sku] = {}
+            
+            lot_codes[sku][lot] = bb
+        
+        return jsonify({
+            'status': 'success',
+            'data': lot_codes
+        })
+    except Exception as e:
+        print(f"Error loading lot codes: {str(e)}")
+        return jsonify({
+            'status': 'error',
             'message': str(e)
         }), 500
 
