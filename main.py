@@ -162,6 +162,10 @@ def submit_order():
         for ordered_product in data['products']:
             if ordered_product['quantity'] > 0:
                 product = Product.query.filter_by(name=ordered_product['name']).first()
+                print(f"\nDEBUG - Updating stock for {product.name}:")
+                print(f"Current stock: {product.stock}")
+                print(f"Order quantity: {ordered_product['quantity']}")
+                
                 if not product:
                     raise Exception(f"Product not found: {ordered_product['name']}")
                 
@@ -169,11 +173,17 @@ def submit_order():
                     raise Exception(f"Not enough stock for {product.name}")
                 
                 product.stock -= ordered_product['quantity']
+                print(f"New stock: {product.stock}")
         
         # Commit the stock updates
         try:
             db.session.commit()
             print("DEBUG - Updated product stock in database")
+            # Verify the updates
+            for ordered_product in data['products']:
+                if ordered_product['quantity'] > 0:
+                    product = Product.query.filter_by(name=ordered_product['name']).first()
+                    print(f"Verified stock for {product.name}: {product.stock}")
         except Exception as e:
             db.session.rollback()
             raise Exception(f"Failed to update stock: {str(e)}")

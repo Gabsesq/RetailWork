@@ -287,6 +287,10 @@
 
                 // Check if products array exists in the response
                 if (data.products) {
+                    // Clear any existing order quantities
+                    products.forEach(p => delete p.orderQuantity);
+                    
+                    // Update products array
                     products = data.products;
                     console.log("Loaded products:", products);
                     populateInventoryTable();
@@ -494,14 +498,15 @@
 
                 if (result.success) {
                     alert('Order submitted successfully!');
-                    // Refresh the inventory immediately
+                    // Clear order quantities before refreshing inventory
+                    products.forEach(p => delete p.orderQuantity);
                     await loadInventory();
+                    
                     // Clear the form
                     document.getElementById('firstName').value = '';
                     document.getElementById('lastName').value = '';
                     document.getElementById('shippingAddress').value = '';
                     document.getElementById('orderNotes').value = '';
-                    products.forEach(p => p.orderQuantity = 0);
                     populateInventoryTable();
                 } else {
                     alert(result.message || 'Failed to submit order');
