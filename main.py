@@ -283,6 +283,7 @@ def get_lotcodes():
             
             lot_codes[sku][lot] = bb
         
+        print("DEBUG - Loaded lot codes:", lot_codes)  # Add debug logging
         return jsonify({
             'status': 'success',
             'data': lot_codes

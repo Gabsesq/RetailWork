@@ -687,7 +687,7 @@
                     }
                     
                     if (!isWarehouse) {
-                        // Update lot codes dropdown
+                        console.log("Updating lot codes for SKU:", skuName);
                         updateLotCodesDropdown(tr, skuName);
                     }
                 }
@@ -744,21 +744,28 @@
             const lotSelect = row.children[1].querySelector('select');
             if (!lotSelect) return;
             
+            console.log("Updating lot codes dropdown for", skuName);
+            console.log("Available lot codes:", LOT_CODES);
+            
             // Clear existing options
             lotSelect.innerHTML = '<option value=""></option>';
             
             if (LOT_CODES[skuName]) {
                 // Add lot codes for this SKU
                 Object.entries(LOT_CODES[skuName]).forEach(([lot, bb]) => {
+                    console.log(`Adding lot code ${lot} with BB ${bb}`);
                     const option = new Option(lot, lot);
                     option.dataset.bb = bb;
                     lotSelect.appendChild(option);
                 });
+            } else {
+                console.log("No lot codes found for SKU:", skuName);
             }
         }
 
         // Load lot codes when page loads
         window.onload = async () => {
+            console.log("Loading lot codes...");
             await loadLotCodes();
             renderTable();
         };
@@ -770,7 +777,7 @@
                 
                 if (result.status === 'success') {
                     LOT_CODES = result.data;
-                    console.log("Loaded lot codes:", LOT_CODES);
+                    console.log("Successfully loaded lot codes:", LOT_CODES);
                 } else {
                     console.error("Failed to load lot codes:", result.message);
                 }
