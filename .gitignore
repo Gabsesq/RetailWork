@@ -7,3 +7,13 @@
 !static/
 !static/*
 !LotCode.xlsx
+.env
+__pycache__/
+*.pyc
+instance/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/

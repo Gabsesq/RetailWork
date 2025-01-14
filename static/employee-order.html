@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Order</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        
+        .header {
+            text-align: center;
+            background-color: #D3D3D3;
+            padding: 8px;
+            font-weight: normal;
+            border: 1px solid black;
+            margin-bottom: 20px;
+        }
+
+        .inventory-container {
+            width: 80%;
+            margin: 0 auto;
+            float: none;
+        }
+
+        .inventory-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .inventory-table th, 
+        .inventory-table td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .inventory-table th {
+            background-color: black;
+            color: white;
+        }
+
+        .inventory-table tr:nth-child(odd) {
+            background-color: #D3D3D3;
+        }
+
+        .inventory-table tr:nth-child(even) {
+            background-color: white;
+        }
+
+        @media print {
+            .inventory-table th {
+                background-color: black !important;
+                color: white !important;
+            }
+
+            .inventory-table tr:nth-child(odd) td {
+                background-color: #D3D3D3 !important;
+            }
+        }
+
+        .quantity-controls {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            float: right;
+        }
+
+        .quantity-button {
+            width: 25px;
+            height: 25px;
+            border: none;
+            border-radius: 50%;
+            background: #1a237e;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 25px;
+            padding: 0;
+        }
+
+        .quantity-button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .quantity-display {
+            min-width: 30px;
+            text-align: center;
+        }
+
+        .employee-name-container {
+            margin-bottom: 20px;
+            padding: 20px;
+        }
+
+        .employee-info-container {
+            margin-bottom: 20px;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .input-group label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .input-group input {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .input-group input:focus {
+            border-color: #1a237e;
+            outline: none;
+            box-shadow: 0 0 3px rgba(26, 35, 126, 0.2);
+        }
+
+        .address-group {
+            grid-column: 1 / -1;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+
+        .address-group h3 {
+            margin: 0 0 10px 0;
+            color: #1a237e;
+        }
+
+        .shipping-address {
+            width: 100%;
+            height: 100px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .shipping-address:focus {
+            border-color: #1a237e;
+            outline: none;
+            box-shadow: 0 0 3px rgba(26, 35, 126, 0.2);
+        }
+
+        .product-limit-info {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #e3f2fd;
+            border-radius: 4px;
+            color: #1a237e;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .submit-order-button {
+            display: block;
+            margin: 20px auto;
+            padding: 12px 24px;
+            background: #1a237e;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .submit-order-button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+
+        /* Notes section styles */
+        .notes-section {
+            margin: 20px auto;
+            width: 80%;
+        }
+
+        .notes-textarea {
+            width: 100%;
+            height: 80px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            box-sizing: border-box;
+            margin-top: 5px;
+        }
+
+        .notes-textarea:focus {
+            border-color: #1a237e;
+            outline: none;
+            box-shadow: 0 0 3px rgba(26, 35, 126, 0.2);
+        }
+
+        .notes-label {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1 class="header">EMPLOYEE ORDER</h1>
+    
+    <div class="employee-info-container">
+        <div class="input-group">
+            <label for="firstName">First Name:</label>
+            <input type="text" id="firstName" required>
+        </div>
+        <div class="input-group">
+            <label for="lastName">Last Name:</label>
+            <input type="text" id="lastName" required>
+        </div>
+        <div class="address-group">
+            <h3>Shipping Address</h3>
+            <textarea id="shippingAddress" class="shipping-address" 
+                placeholder="Enter complete shipping address"></textarea>
+        </div>
+    </div>
+
+    <div class="product-limit-info">
+        You can select up to 3 different products per order
+    </div>
+
+    <div class="inventory-container">
+        <table class="inventory-table">
+            <thead>
+                <tr>
+                    <th>Product Name</th>
+                    <th>In Stock</th>
+                    <th>Order</th>
+                </tr>
+            </thead>
+            <tbody id="inventory-body">
+                <!-- Table will be populated by JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <div class="notes-section">
+        <div class="notes-label">Additional Notes:</div>
+        <textarea id="orderNotes" class="notes-textarea" 
+            placeholder="Add any special instructions or notes here"></textarea>
+    </div>
+
+    <button id="submitOrderButton" class="submit-order-button" onclick="submitFullOrder()" disabled>
+        Submit Order
+    </button>
+
+    <script>
+        const MAX_PRODUCTS = 3;
+
+        let products = [];
+        const BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+            ? 'http://127.0.0.1:5000'
+            : 'https://retailpr-f15aaf777d4b.herokuapp.com';
+
+        async function loadInventory() {
+            try {
+                console.log("Fetching inventory from:", `${BASE_URL}/api/inventory`);
+                const response = await fetch(`${BASE_URL}/api/inventory`);
+                console.log("Response status:", response.status);
+                
+                const data = await response.json();
+                console.log("Received data:", data);
+
+                // Check if products array exists in the response
+                if (data.products) {
+                    products = data.products;
+                    console.log("Loaded products:", products);
+                    populateInventoryTable();
+                } else {
+                    console.error("No products found in response:", data);
+                }
+            } catch (error) {
+                console.error('Error loading inventory:', error);
+            }
+        }
+
+        function populateInventoryTable() {
+            const tbody = document.getElementById('inventory-body');
+            if (!tbody) {
+                console.error('Could not find inventory-body element');
+                return;
+            }
+            
+            console.log("Populating table with products:", products);
+            tbody.innerHTML = '';
+
+            const selectedCount = getSelectedProductCount();
+            const totalItems = getTotalItemsCount();
+
+            // Update the product limit info to show total items
+            const limitInfo = document.querySelector('.product-limit-info');
+            limitInfo.innerHTML = `
+                You can select up to 3 different products per order<br>
+                <span style="font-size: 0.9em; color: #666;">
+                    (${selectedCount}/3 products selected, ${totalItems}/3 total items)
+                </span>
+            `;
+
+            // Filter out products with 0 stock before displaying
+            products
+                .filter(product => product.stock > 0)
+                .forEach(product => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${product.name}</td>
+                        <td>${product.stock}</td>
+                        <td>
+                            <div class="quantity-controls">
+                                <button 
+                                    class="quantity-button" 
+                                    onclick="updateQuantity(${product.id}, -1)"
+                                    ${product.orderQuantity <= 0 ? 'disabled' : ''}>-</button>
+                                <span class="quantity-display" id="qty-${product.id}">
+                                    ${product.orderQuantity || 0}
+                                </span>
+                                <button 
+                                    class="quantity-button" 
+                                    onclick="updateQuantity(${product.id}, 1)"
+                                    ${(product.orderQuantity || 0) >= product.stock || 
+                                      (selectedCount >= MAX_PRODUCTS && !product.orderQuantity) ||
+                                      totalItems >= 3 ? 'disabled' : ''}>+</button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+            // Enable/disable submit button based on selections
+            const submitButton = document.getElementById('submitOrderButton');
+            const hasProducts = getSelectedProductCount() > 0;
+            submitButton.disabled = !hasProducts;
+        }
+
+        function updateQuantity(productId, change) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+
+            // Initialize orderQuantity if it doesn't exist
+            if (!product.orderQuantity) product.orderQuantity = 0;
+
+            // Calculate new quantity
+            const newQuantity = product.orderQuantity + change;
+
+            // Check if we're adding a new product (going from 0 to 1)
+            const isAddingNewProduct = product.orderQuantity === 0 && change > 0;
+            
+            // Check if adding this product would exceed the product limit
+            if (isAddingNewProduct && getSelectedProductCount() >= MAX_PRODUCTS) {
+                alert(`You can only select up to ${MAX_PRODUCTS} products at a time`);
+                return;
+            }
+
+            // Check total items limit (let's say 10 items total)
+            const TOTAL_ITEMS_LIMIT = 3;
+            const currentTotal = getTotalItemsCount();
+            if (change > 0 && (currentTotal + change) > TOTAL_ITEMS_LIMIT) {
+                alert(`You can only order up to ${TOTAL_ITEMS_LIMIT} items total`);
+                return;
+            }
+
+            // Validate the new quantity
+            if (newQuantity >= 0 && newQuantity <= product.stock) {
+                product.orderQuantity = newQuantity;
+                
+                // If quantity is greater than 0, place the order
+                if (change > 0) {
+                    placeOrder(productId, 1);
+                } else if (change < 0) {
+                    placeOrder(productId, -1);
+                }
+            }
+
+            // Update the display
+            populateInventoryTable();
+        }
+
+        async function placeOrder(productId, quantity) {
+            const firstName = document.getElementById('firstName').value;
+            const lastName = document.getElementById('lastName').value;
+            const shippingAddress = document.getElementById('shippingAddress').value;
+
+            if (!firstName || !lastName || !shippingAddress) {
+                alert('Please fill in all required shipping information');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${BASE_URL}/api/order`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        employee_name: `${firstName} ${lastName}`,
+                        shipping_address: shippingAddress,
+                        product_id: productId,
+                        quantity: quantity
+                    })
+                });
+
+                const result = await response.json();
+                if (!result.success) {
+                    alert(result.message || 'Failed to place order');
+                    // Revert the quantity change if the order failed
+                    const product = products.find(p => p.id === productId);
+                    if (product) {
+                        product.orderQuantity -= quantity;
+                        populateInventoryTable();
+                    }
+                }
+            } catch (error) {
+                console.error('Error placing order:', error);
+                alert('Error placing order');
+                // Revert the quantity change on error
+                const product = products.find(p => p.id === productId);
+                if (product) {
+                    product.orderQuantity -= quantity;
+                    populateInventoryTable();
+                }
+            }
+        }
+
+        function getSelectedProductCount() {
+            return products.filter(p => p.orderQuantity && p.orderQuantity > 0).length;
+        }
+
+        // Add this function to get total items count
+        function getTotalItemsCount() {
+            return products.reduce((total, p) => total + (p.orderQuantity || 0), 0);
+        }
+
+        async function submitFullOrder() {
+            const firstName = document.getElementById('firstName').value;
+            const lastName = document.getElementById('lastName').value;
+            const shippingAddress = document.getElementById('shippingAddress').value;
+            const notes = document.getElementById('orderNotes').value;
+            
+            console.log("\nDEBUG - Form data:");
+            console.log("First Name:", firstName);
+            console.log("Last Name:", lastName);
+            console.log("Address:", shippingAddress);
+            console.log("Notes:", notes);
+
+            if (!firstName || !lastName || !shippingAddress) {
+                alert('Please fill in all required shipping information');
+                return;
+            }
+
+            // Get selected products
+            const selectedProducts = products.filter(p => p.orderQuantity && p.orderQuantity > 0);
+            
+            const orderData = {
+                employee: {
+                    firstName,
+                    lastName,
+                    address: shippingAddress,
+                    notes: notes
+                },
+                products: selectedProducts.map(p => ({
+                    name: p.name,
+                    quantity: p.orderQuantity
+                }))
+            };
+            
+            console.log("\nDEBUG - Order data being sent:", orderData);
+
+            try {
+                const response = await fetch(`${BASE_URL}/api/submit-order`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(orderData)
+                });
+
+                console.log("\nDEBUG - Response:", response);
+                const result = await response.json();
+                console.log("DEBUG - Result:", result);
+
+                if (result.success) {
+                    alert('Order submitted successfully!');
+                    // Clear the form
+                    window.location.reload();
+                } else {
+                    alert(result.message || 'Failed to submit order');
+                }
+            } catch (error) {
+                console.error('Error submitting order:', error);
+                alert('Error submitting order');
+            }
+        }
+
+        // Initialize
+        window.onload = loadInventory;
+
+        // Refresh inventory every 30 seconds
+        setInterval(loadInventory, 30000);
+    </script>
+</body>
+</html> 
