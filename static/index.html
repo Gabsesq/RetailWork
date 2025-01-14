@@ -1039,15 +1039,27 @@
             const rows = tbody.getElementsByTagName("tr");
             const isWarehouse = document.getElementById('templateToggle').checked;
             
-            // Calculate total from CNT1 column (index 3 for warehouse)
             let total = 0;
             Array.from(rows).forEach(row => {
-                const countCell = row.children[isWarehouse ? 3 : 4];
-                const count = parseInt(countCell.textContent) || 0;
-                total += count;
+                // For warehouse template, only count if U/M is "CA"
+                if (isWarehouse) {
+                    const umCell = row.children[2]; // U/M column in warehouse template
+                    const countCell = row.children[3]; // CNT1 column
+                    
+                    // Only add to total if U/M is "CA"
+                    if (umCell.textContent.trim().toUpperCase() === "CA") {
+                        const count = parseInt(countCell.textContent) || 0;
+                        total += count;
+                    }
+                } else {
+                    // For retail template, count everything as before
+                    const countCell = row.children[4];
+                    const count = parseInt(countCell.textContent) || 0;
+                    total += count;
+                }
             });
             
-            // Update the totals in the footer
+            // Update the totals in the footer (only present in warehouse template)
             const totalShippedSpan = document.querySelector('.totals div:first-child span');
             const totalConfirmedSpan = document.querySelector('.totals div:last-child span');
             
