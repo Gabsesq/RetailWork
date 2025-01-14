@@ -20,7 +20,15 @@ with app.app_context():
         Product(name='Edi-HJ-PB-SML', stock=10),
         Product(name='Edi-HJ-PB-LRG', stock=10),
         Product(name='Edi-HJ-PB-FAM', stock=10),
-        Product(name='600-HJR-HO', stock=10)
+        Product(name='600-HJR-HO', stock=10),
+        Product(name='TS-Edi-STRESS-PB', stock=10),
+        Product(name='Edi-STRESS-PB-SML', stock=10),
+        Product(name='Edi-STRESS-PB-LRG', stock=10),
+        Product(name='Edi-STRESS-PB-FAM', stock=10),
+        Product(name='100-DR-HO', stock=10),
+        Product(name='200-DR-HO', stock=10),
+        Product(name='500-DR-HO', stock=10),
+        Product(name='750-DR-HO', stock=10)
     ]
     db.session.add_all(products)
     db.session.commit()
