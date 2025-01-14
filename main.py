@@ -156,7 +156,33 @@ def debug_db():
 def submit_order():
     try:
         data = request.json
-        print("\nDEBUG - Full request data:", data)  # Print entire request data
+        print("\nDEBUG - Full request data:", data)
+        
+        # Update product stock in database
+        for ordered_product in data['products']:
+            if ordered_product['quantity'] > 0:
+                product = Product.query.filter_by(name=ordered_product['name']).first()
+                if not product:
+                    raise Exception(f"Product not found: {ordered_product['name']}")
+                
+                if product.stock < ordered_product['quantity']:
+                    raise Exception(f"Not enough stock for {product.name}")
+                
+                product.stock -= ordered_product['quantity']
+        
+        # Commit the stock updates
+        try:
+            db.session.commit()
+            print("DEBUG - Updated product stock in database")
+        except Exception as e:
+            db.session.rollback()
+            raise Exception(f"Failed to update stock: {str(e)}")
+
+        # Format email content
+        products_text = "\n".join([
+            f"- {p['name']}: {p['quantity']} units"
+            for p in data['products']
+        ])
         
         print("\nDEBUG - Mail settings:")
         print(f"Username: {app.config['MAIL_USERNAME']}")
@@ -166,12 +192,6 @@ def submit_order():
         # Debug print for notes
         print("\nDEBUG - Employee data:", data.get('employee', {}))
         print("DEBUG - Notes received:", data.get('employee', {}).get('notes', 'No notes found in data'))
-        
-        # Format email content
-        products_text = "\n".join([
-            f"- {p['name']}: {p['quantity']} units"
-            for p in data['products']
-        ])
         
         # Format notes with proper line breaks
         notes_text = data.get('employee', {}).get('notes', '').strip()

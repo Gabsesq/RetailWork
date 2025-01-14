@@ -494,8 +494,15 @@
 
                 if (result.success) {
                     alert('Order submitted successfully!');
+                    // Refresh the inventory immediately
+                    await loadInventory();
                     // Clear the form
-                    window.location.reload();
+                    document.getElementById('firstName').value = '';
+                    document.getElementById('lastName').value = '';
+                    document.getElementById('shippingAddress').value = '';
+                    document.getElementById('orderNotes').value = '';
+                    products.forEach(p => p.orderQuantity = 0);
+                    populateInventoryTable();
                 } else {
                     alert(result.message || 'Failed to submit order');
                 }
