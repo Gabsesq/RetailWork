@@ -5,6 +5,7 @@
 !runtime.txt
 !main.py
 !inventory_db.py
+!init_db.py
 !static/
 !static/*
 !LotCode.xlsx
