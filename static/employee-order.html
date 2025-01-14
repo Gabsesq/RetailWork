@@ -305,20 +305,11 @@
                 return;
             }
             
-            console.log("Populating table with products:", products);
+            console.log("Debug - Populating table with products:", products);
             tbody.innerHTML = '';
 
             const selectedCount = getSelectedProductCount();
             const totalItems = getTotalItemsCount();
-
-            // Update the product limit info to show total items
-            const limitInfo = document.querySelector('.product-limit-info');
-            limitInfo.innerHTML = `
-                You can select up to 3 different products per order<br>
-                <span style="font-size: 0.9em; color: #666;">
-                    (${selectedCount}/3 products selected, ${totalItems}/3 total items)
-                </span>
-            `;
 
             // Filter out products with 0 stock before displaying
             products

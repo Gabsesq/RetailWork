@@ -60,15 +60,16 @@ def get_inventory():
         for p in products:
             print(f"ID: {p.id}, Name: {p.name}, Stock: {p.stock}")
         
-        print("Found products:", [p.name for p in products])  # Debug print
-        return jsonify({
+        response_data = {
             'status': 'success',
             'products': [{
                 'id': p.id,
                 'name': p.name,
                 'stock': p.stock
             } for p in products]
-        })
+        }
+        print("DEBUG - Sending response:", response_data)
+        return jsonify(response_data)
     except Exception as e:
         print("\nERROR fetching inventory:")
         print(f"Error type: {type(e)}")
