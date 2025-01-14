@@ -5,6 +5,7 @@ from flask_cors import CORS
 import os
 from flask_mail import Mail, Message
 from dotenv import load_dotenv
+from sqlalchemy import text
 
 # Load environment variables
 load_dotenv()
@@ -44,10 +45,11 @@ print(f"Recipient: {os.getenv('MAIL_RECIPIENT')}\n")
 
 # Create tables
 with app.app_context():
-    db.session.execute('DROP TABLE IF EXISTS product')
-    db.session.execute('DROP TABLE IF EXISTS "order"')
-    db.session.commit()
-    db.create_all()
+    try:
+        db.create_all()
+    except Exception as e:
+        print(f"Database initialization error: {e}")
+        pass
 
 # Add new routes for inventory management
 @app.route('/api/inventory', methods=['GET'])
