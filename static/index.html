@@ -645,6 +645,39 @@
             const inputValue = td.textContent.trim();
             const isWarehouse = document.getElementById('templateToggle').checked;
             
+            // Check for pattern: 1 followed by any input
+            if (inputValue.startsWith("1")) {
+                const actualInput = inputValue.substring(1);  // Remove the "1" prefix
+                
+                // Handle barcode case
+                if (actualInput.length === 12 && actualInput.startsWith("8") && SKUMAP[actualInput]) {
+                    td.textContent = SKUMAP[actualInput];
+                } else {
+                    // For manually typed SKUs, just use the input without the "1"
+                    td.textContent = actualInput;
+                }
+                
+                // Set U/M based on whether input starts with "WH"
+                const umCell = isWarehouse ? tr.children[2] : tr.children[3];
+                umCell.textContent = td.textContent.toUpperCase().startsWith("WH") ? "CA" : "EA";
+                
+                // Set count to 1 for new line
+                const countCell = isWarehouse ? tr.children[3] : tr.children[4];
+                countCell.textContent = "1";
+                
+                // Update lot options if it's retail template
+                if (!isWarehouse) {
+                    const lotSelect = tr.children[1].querySelector('select');
+                    if (lotSelect) {
+                        updateLotOptions(lotSelect, td.textContent);
+                    }
+                }
+                
+                checkForEmptyRow();
+                updateTotals();
+                return;
+            }
+            
             // Check for pattern: 1 followed by 12 digit number starting with 8
             if (inputValue.length === 13 && inputValue.startsWith("1") && inputValue.substring(1).startsWith("8")) {
                 const barcode = inputValue.substring(1);
