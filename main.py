@@ -56,6 +56,10 @@ with app.app_context():
 def get_inventory():
     try:
         products = Product.query.all()
+        print("\nDEBUG - Database query results:")
+        for p in products:
+            print(f"ID: {p.id}, Name: {p.name}, Stock: {p.stock}")
+        
         print("Found products:", [p.name for p in products])  # Debug print
         return jsonify({
             'status': 'success',
@@ -66,7 +70,9 @@ def get_inventory():
             } for p in products]
         })
     except Exception as e:
-        print("Error fetching inventory:", str(e))  # Debug print
+        print("\nERROR fetching inventory:")
+        print(f"Error type: {type(e)}")
+        print(f"Error message: {str(e)}")
         return jsonify({
             'status': 'error',
             'message': str(e)
