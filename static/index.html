@@ -652,8 +652,9 @@
                     const skuName = SKUMAP[barcode];
                     td.textContent = skuName;
                     
+                    // Set U/M to EA for barcodes
                     const umCell = isWarehouse ? tr.children[2] : tr.children[3];
-                    umCell.textContent = isWarehouse ? "CA" : "EA";
+                    umCell.textContent = "EA";
                     
                     const countCell = isWarehouse ? tr.children[3] : tr.children[4];
                     if (!countCell.textContent) {
@@ -663,7 +664,7 @@
                     if (!isWarehouse) {
                         const lotSelect = tr.children[1].querySelector('select');
                         if (lotSelect) {
-                            updateLotOptions(lotSelect, skuName);  // Pass SKU name instead of barcode
+                            updateLotOptions(lotSelect, skuName);
                         }
                     }
                     
@@ -672,9 +673,8 @@
                     return;
                 }
             }
-            
-            // Original handling for regular 12-digit barcodes
-            if (inputValue.length === 12 && inputValue.startsWith("8")) {
+            // Handle regular 12-digit barcodes starting with 8
+            else if (inputValue.length === 12 && inputValue.startsWith("8")) {
                 if (SKUMAP[inputValue]) {
                     const skuName = SKUMAP[inputValue];
                     
@@ -704,8 +704,9 @@
                     } else {
                         td.textContent = skuName;
                         
+                        // Set U/M to EA for barcodes
                         const umCell = isWarehouse ? tr.children[2] : tr.children[3];
-                        umCell.textContent = isWarehouse ? "CA" : "EA";
+                        umCell.textContent = "EA";
                         
                         const countCell = isWarehouse ? tr.children[3] : tr.children[4];
                         if (!countCell.textContent) {
@@ -715,7 +716,7 @@
                         if (!isWarehouse) {
                             const lotSelect = tr.children[1].querySelector('select');
                             if (lotSelect) {
-                                updateLotOptions(lotSelect, skuName);  // Pass SKU name instead of barcode
+                                updateLotOptions(lotSelect, skuName);
                             }
                         }
                     }
@@ -724,8 +725,58 @@
                     updateTotals();
                 }
             }
+            // Handle direct text input
+            else if (inputValue && !inputValue.startsWith("8")) {
+                // Check for existing rows with same text input
+                const rows = Array.from(document.querySelectorAll('#excel-table tr')).reverse();
+                let existingRow = null;
+                
+                for (let row of rows) {
+                    if (row !== tr && row.children[0].textContent.trim().toLowerCase() === inputValue.toLowerCase()) {
+                        existingRow = row;
+                        break;
+                    }
+                }
+                
+                if (existingRow) {
+                    // Increment count in existing row
+                    const countCell = existingRow.children[isWarehouse ? 3 : 4];
+                    const currentCount = parseInt(countCell.textContent) || 0;
+                    countCell.textContent = currentCount + 1;
+                    
+                    // Clear the current row
+                    Array.from(tr.children).forEach(cell => {
+                        if (cell.querySelector('select')) {
+                            cell.querySelector('select').value = '';
+                        } else {
+                            cell.textContent = '';
+                        }
+                    });
+                } else {
+                    // Set U/M based on whether input starts with "WH"
+                    const umCell = isWarehouse ? tr.children[2] : tr.children[3];
+                    umCell.textContent = inputValue.toUpperCase().startsWith("WH") ? "CA" : "EA";
+                    
+                    // Set default count to 1
+                    const countCell = isWarehouse ? tr.children[3] : tr.children[4];
+                    if (!countCell.textContent) {
+                        countCell.textContent = "1";
+                    }
+                    
+                    // Update lot options if it's retail template
+                    if (!isWarehouse) {
+                        const lotSelect = tr.children[1].querySelector('select');
+                        if (lotSelect) {
+                            updateLotOptions(lotSelect, inputValue);
+                        }
+                    }
+                }
+                
+                checkForEmptyRow();
+                updateTotals();
+            }
             
-            // Update lot options for manual SKU entry
+            // Always update lot options and check for empty row
             const lotSelect = tr.children[1].querySelector('select');
             if (lotSelect) {
                 updateLotOptions(lotSelect, inputValue);
@@ -780,7 +831,9 @@
         }
 
         function updateLotOptions(select, sku) {
-            console.log("\nUpdating options for SKU:", sku);
+            console.log("\nUpdating lot options...");
+            console.log("Input SKU:", sku);
+            console.log("Current LOT_CODES:", LOT_CODES);
             select.innerHTML = "";
             select.appendChild(new Option("", ""));
             
@@ -790,15 +843,14 @@
             let skuName = sku;
             if (sku.length === 12 && sku.startsWith('8')) {
                 skuName = SKUMAP[sku] || sku;
+                console.log("Converted barcode to SKU name:", skuName);
             }
             
             const normalizedInputSku = normalizeSkuName(skuName);
-            console.log("Original SKU/Barcode:", sku);
-            console.log("Converted SKU Name:", skuName);
-            console.log("Normalized Input SKU:", normalizedInputSku);
+            console.log("Normalized SKU:", normalizedInputSku);
             
             // Debug: Print all available SKUs and their normalized versions
-            console.log("Available SKUs:");
+            console.log("Available SKUs in LOT_CODES:");
             Object.keys(LOT_CODES).forEach(key => {
                 console.log(`${key} -> ${normalizeSkuName(key)}`);
             });
@@ -821,7 +873,6 @@
                 });
             } else {
                 console.log("No matching SKU found in LOT_CODES");
-                console.log("LOT_CODES keys:", Object.keys(LOT_CODES));
             }
         }
 
@@ -835,14 +886,8 @@
         async function loadLotCodes() {
             try {
                 console.log("Attempting to fetch lot codes...");
-                const response = await fetch("https://retailpr-f15aaf777d4b.herokuapp.com/get-lot-codes", {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    }
-                });
-                console.log("Response received:", response.status);
+                const response = await fetch("http://127.0.0.1:5000/get-lot-codes");
+                console.log("Response status:", response.status);
                 
                 const result = await response.json();
                 console.log("Response data:", result);
@@ -850,6 +895,11 @@
                 if (result.status === "success") {
                     LOT_CODES = result.data;
                     console.log("Loaded lot codes:", LOT_CODES);
+                    
+                    // Test a known SKU
+                    const testSku = Object.keys(LOT_CODES)[0];
+                    console.log("Test SKU:", testSku);
+                    console.log("Available lots for test SKU:", LOT_CODES[testSku]);
                 } else {
                     console.error("Failed to load lot codes:", result.message);
                 }
