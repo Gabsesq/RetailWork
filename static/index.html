@@ -772,7 +772,7 @@
                 } else {
                     // Set U/M based on whether input starts with "WH"
                     const umCell = isWarehouse ? tr.children[2] : tr.children[3];
-                    umCell.textContent = inputValue.toUpperCase().startsWith("WH") ? "CA" : "EA";
+                    umCell.textContent = inputValue.toUpperCase().startsWith("WH") ? "CS" : "EA";
                     
                     // Set default count to 1
                     const countCell = isWarehouse ? tr.children[3] : tr.children[4];
@@ -1058,13 +1058,13 @@
             
             let total = 0;
             Array.from(rows).forEach(row => {
-                // For warehouse template, only count if U/M is "CA"
+                // For warehouse template, only count if U/M is "CS"
                 if (isWarehouse) {
                     const umCell = row.children[2]; // U/M column in warehouse template
                     const countCell = row.children[3]; // CNT1 column
                     
-                    // Only add to total if U/M is "CA"
-                    if (umCell.textContent.trim().toUpperCase() === "CA") {
+                    // Only add to total if U/M is "CS"
+                    if (umCell.textContent.trim().toUpperCase() === "CS") {
                         const count = parseInt(countCell.textContent) || 0;
                         total += count;
                     }
