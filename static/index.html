@@ -1064,6 +1064,8 @@
                     if (skuCell.textContent.trim() && !skuCell.textContent.trim().toUpperCase().startsWith("WH")) {
                         umCell.textContent = "EA";
                     }
+                    // Update totals whenever U/M changes
+                    updateTotals();
                 });
                 
                 observer.observe(umCell, { 
@@ -1181,13 +1183,14 @@
             
             let total = 0;
             Array.from(rows).forEach(row => {
-                // For warehouse template, only count if U/M is "CS"
                 if (isWarehouse) {
                     const umCell = row.children[2]; // U/M column in warehouse template
                     const countCell = row.children[3]; // CNT1 column
+                    const skuCell = row.children[0]; // SKU column
                     
-                    // Only add to total if U/M is "CS"
-                    if (umCell.textContent.trim().toUpperCase() === "CS") {
+                    // Add to total if U/M is "CS" or if SKU starts with "WH"
+                    if (umCell.textContent.trim().toUpperCase() === "CS" || 
+                        skuCell.textContent.trim().toUpperCase().startsWith("WH")) {
                         const count = parseInt(countCell.textContent) || 0;
                         total += count;
                     }
@@ -1200,18 +1203,20 @@
             });
             
             // Update the totals in the footer (only present in warehouse template)
-            const totalShippedSpan = document.querySelector('.totals div:first-child span');
-            const totalConfirmedSpan = document.querySelector('.totals div:last-child span');
-            
-            if (totalShippedSpan) {
-                totalShippedSpan.textContent = total;
-            }
-            if (totalConfirmedSpan) {
-                totalConfirmedSpan.textContent = total;
+            if (isWarehouse) {
+                const totalShippedSpan = document.querySelector('.totals div:first-child span');
+                const totalConfirmedSpan = document.querySelector('.totals div:last-child span');
+                
+                if (totalShippedSpan) {
+                    totalShippedSpan.textContent = total;
+                }
+                if (totalConfirmedSpan) {
+                    totalConfirmedSpan.textContent = total;
+                }
             }
         }
 
-        // Also update totals when manually editing count cells
+        // Also ensure totals update when count cells change
         function addCountCellListeners() {
             const tbody = document.getElementById("excel-table");
             const rows = tbody.getElementsByTagName("tr");
@@ -1219,7 +1224,9 @@
             
             Array.from(rows).forEach(row => {
                 const countCell = row.children[isWarehouse ? 3 : 4];
-                countCell.addEventListener('input', updateTotals);
+                countCell.addEventListener('input', () => {
+                    updateTotals();
+                });
             });
         }
 
