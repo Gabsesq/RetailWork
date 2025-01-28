@@ -588,7 +588,6 @@
         let tableData = [];
         let debounceTimeout = null;
 
-        // Move createRow outside of renderTable
         function createRow(isWarehouse) {
             const tr = document.createElement("tr");
             
@@ -621,6 +620,7 @@
             // U/M cell
             const umTd = document.createElement("td");
             umTd.contentEditable = true;
+            // Don't set default value for U/M
             tr.appendChild(umTd);
             
             // COUNT/CNT1 cell
@@ -642,7 +642,6 @@
             return tr;
         }
 
-        // Modify renderTable to use the global createRow
         function renderTable(isWarehouse = false) {
             const tbody = document.getElementById("excel-table");
             tbody.innerHTML = "";
@@ -654,6 +653,7 @@
             }
             
             addCountCellListeners();
+            addUmCellListeners();
             updateTotals();
         }
 
@@ -666,21 +666,53 @@
             // For warehouse template, handle each quantities
             if (isWarehouse && inputValue.length === 12 && inputValue.startsWith("8")) {
                 const lotCell = tr.children[1];
+                const umCell = tr.children[2];  // U/M cell for warehouse
+                
+                // Set U/M to EA for barcodes in warehouse template
+                umCell.textContent = "EA";
+                
                 // Convert to dropdown if it's an each
                 if (SKUMAP[inputValue]) {
                     const skuName = SKUMAP[inputValue];
+                    td.textContent = skuName;
+                    
                     // Clear existing content
                     lotCell.innerHTML = '';
-                    lotCell.contentEditable = false;
                     
-                    // Create and add select element
+                    // Create and add select element for EA items
                     const lotSelect = document.createElement("select");
                     lotSelect.appendChild(new Option("", ""));
                     lotSelect.addEventListener("change", handleLotSelection);
                     lotCell.appendChild(lotSelect);
+                    lotCell.contentEditable = false;
                     
                     // Update lot options
                     updateLotOptions(lotSelect, skuName);
+                    
+                    // Set default count if empty
+                    const countCell = tr.children[3];  // CNT1 for warehouse
+                    if (!countCell.textContent) {
+                        countCell.textContent = "1";
+                    }
+                }
+            }
+            
+            // Handle WH or CS cases in warehouse template
+            if (isWarehouse && (inputValue.toUpperCase().startsWith("WH") || inputValue === "CS")) {
+                const lotCell = tr.children[1];
+                const umCell = tr.children[2];
+                
+                // Set U/M to CS for WH cases
+                umCell.textContent = "CS";
+                
+                // Make lot cell editable text
+                lotCell.innerHTML = '';
+                lotCell.contentEditable = true;
+                
+                // Set default count if empty
+                const countCell = tr.children[3];
+                if (!countCell.textContent) {
+                    countCell.textContent = "1";
                 }
             }
             
@@ -892,6 +924,17 @@
         }
 
         function updateLotOptions(select, sku) {
+            const isWarehouse = document.getElementById('templateToggle').checked;
+            const tr = select.closest("tr");
+            const umCell = tr.children[2];
+            
+            // Only show lot options for EA items in warehouse template
+            if (isWarehouse && umCell.textContent !== "EA") {
+                select.parentElement.contentEditable = true;
+                select.remove();
+                return;
+            }
+            
             console.log("\nUpdating lot options...");
             console.log("Input SKU:", sku);
             console.log("Current LOT_CODES:", LOT_CODES);
@@ -971,10 +1014,24 @@
 
         // Add this new function to handle lot selection
         function handleLotSelection(event) {
+            const isWarehouse = document.getElementById('templateToggle').checked;
+            const tr = event.target.closest("tr");
+            const umCell = tr.children[2];
+            const skuCell = tr.children[0];
+            
+            // For warehouse template
+            if (isWarehouse) {
+                // If it's not a WH item, ensure U/M stays as EA
+                if (!skuCell.textContent.trim().toUpperCase().startsWith("WH")) {
+                    umCell.textContent = "EA";
+                }
+                return;
+            }
+            
+            // Rest of the existing retail template logic
             const select = event.target;
-            const tr = select.closest("tr");
             const selectedLot = select.value;
-            const skuName = tr.children[0].textContent.trim();
+            const skuName = skuCell.textContent.trim();
             const bbCell = tr.children[2];  // B/B cell
             
             const normalizedInputSku = normalizeSkuName(skuName);
@@ -982,16 +1039,39 @@
                 normalizeSkuName(key) === normalizedInputSku
             );
             
-            console.log("Lot Selection - SKU:", skuName);
-            console.log("Normalized SKU:", normalizedInputSku);
-            console.log("Matching SKU:", matchingSku);
-            console.log("Selected Lot:", selectedLot);
-            
             if (selectedLot && matchingSku && LOT_CODES[matchingSku] && LOT_CODES[matchingSku][selectedLot]) {
                 bbCell.textContent = LOT_CODES[matchingSku][selectedLot];
             } else {
                 bbCell.textContent = "";
             }
+        }
+
+        // Update addUmCellListeners to not set EA on empty rows
+        function addUmCellListeners() {
+            const tbody = document.getElementById("excel-table");
+            const rows = tbody.getElementsByTagName("tr");
+            const isWarehouse = document.getElementById('templateToggle').checked;
+            
+            if (!isWarehouse) return; // Only add listeners for warehouse template
+            
+            Array.from(rows).forEach(row => {
+                const umCell = row.children[2];
+                const skuCell = row.children[0];
+                
+                // Monitor changes to U/M cell
+                const observer = new MutationObserver(() => {
+                    // Only set EA if there's a SKU and it's not a WH item
+                    if (skuCell.textContent.trim() && !skuCell.textContent.trim().toUpperCase().startsWith("WH")) {
+                        umCell.textContent = "EA";
+                    }
+                });
+                
+                observer.observe(umCell, { 
+                    characterData: true, 
+                    childList: true, 
+                    subtree: true 
+                });
+            });
         }
 
         // Helper function to clear a row
@@ -1074,22 +1154,21 @@
             const rows = tbody.getElementsByTagName("tr");
             const isWarehouse = document.getElementById('templateToggle').checked;
             
-            // Get the last row
-            const lastRow = rows[rows.length - 1];
-            
-            // Check if any cell in the last row has content
+            // Check if the last row has any content
             let hasContent = false;
-            Array.from(lastRow.children).forEach(cell => {
+            Array.from(rows[rows.length - 1].children).forEach(cell => {
                 if (cell.querySelector('select')) {
                     if (cell.querySelector('select').value) hasContent = true;
                 } else if (cell.textContent.trim()) {
-                    hasContent = true;
+                    // Don't count empty U/M cell as content
+                    if (cell !== rows[rows.length - 1].children[2] || cell.textContent.trim() !== "EA") {
+                        hasContent = true;
+                    }
                 }
             });
 
-            // If the last row has any content, add a new row
+            // If the last row has any content, add a new empty row
             if (hasContent) {
-                console.log("Adding new row because last row has content");
                 const newRow = createRow(isWarehouse);
                 tbody.appendChild(newRow);
             }
