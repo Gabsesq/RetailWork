@@ -601,6 +601,7 @@
             // LOT cell
             const lotTd = document.createElement("td");
             if (!isWarehouse) {
+                // Start with select element, it will be converted to editable text if WH case is entered
                 const lotSelect = document.createElement("select");
                 lotSelect.appendChild(new Option("", ""));
                 lotSelect.addEventListener("change", handleLotSelection);
@@ -661,6 +662,51 @@
             const tr = td.parentElement;
             const inputValue = td.textContent.trim();
             const isWarehouse = document.getElementById('templateToggle').checked;
+            
+            // For warehouse template, handle each quantities
+            if (isWarehouse && inputValue.length === 12 && inputValue.startsWith("8")) {
+                const lotCell = tr.children[1];
+                // Convert to dropdown if it's an each
+                if (SKUMAP[inputValue]) {
+                    const skuName = SKUMAP[inputValue];
+                    // Clear existing content
+                    lotCell.innerHTML = '';
+                    lotCell.contentEditable = false;
+                    
+                    // Create and add select element
+                    const lotSelect = document.createElement("select");
+                    lotSelect.appendChild(new Option("", ""));
+                    lotSelect.addEventListener("change", handleLotSelection);
+                    lotCell.appendChild(lotSelect);
+                    
+                    // Update lot options
+                    updateLotOptions(lotSelect, skuName);
+                }
+            }
+            
+            // Handle WH cases in retail template
+            if (!isWarehouse && inputValue.toUpperCase().startsWith("WH")) {
+                // Convert LOT cell from dropdown to editable text
+                const lotCell = tr.children[1];
+                if (lotCell.querySelector('select')) {
+                    lotCell.innerHTML = '';  // Remove the select element
+                    lotCell.contentEditable = true;  // Make the cell editable
+                }
+                
+                // Set U/M to CS for WH cases
+                const umCell = tr.children[3];
+                umCell.textContent = "CS";
+                
+                // Set default count if empty
+                const countCell = tr.children[4];
+                if (!countCell.textContent) {
+                    countCell.textContent = "1";
+                }
+                
+                checkForEmptyRow();
+                updateTotals();
+                return;
+            }
             
             // Check for pattern: 1 followed by 12 digit number starting with 8
             if (inputValue.length === 13 && inputValue.startsWith("1") && inputValue.substring(1).startsWith("8")) {
@@ -739,7 +785,6 @@
                     }
                     
                     checkForEmptyRow();
-                    updateTotals();
                 }
             }
             // Handle direct text input
@@ -790,7 +835,6 @@
                 }
                 
                 checkForEmptyRow();
-                updateTotals();
             }
             
             // Always update lot options and check for empty row
