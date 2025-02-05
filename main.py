@@ -3,7 +3,15 @@ from openpyxl import load_workbook
 from flask_cors import CORS
 import os
 
-app = Flask(__name__, static_folder='static')
+# Create the static directory if it doesn't exist
+if not os.path.exists('static'):
+    os.makedirs('static')
+if not os.path.exists('static/css'):
+    os.makedirs('static/css')
+if not os.path.exists('static/js'):
+    os.makedirs('static/js')
+
+app = Flask(__name__, static_url_path='')
 CORS(app)
 
 # Use environment variable for port
@@ -52,6 +60,11 @@ SKUMAP = {
     "860008876744": "2in1-SK-CT",
     "860008221971": "SK-PW-RL",
 }
+
+# Serve static files in production
+@app.route('/static/<path:path>')
+def serve_static(path):
+    return send_from_directory('static', path)
 
 @app.route("/", methods=["GET"])
 def home():
