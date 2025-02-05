@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -116,7 +116,7 @@
         const contentDiv = document.getElementById('templateContent');
 
         async function loadTemplate(isWarehouse) {
-            const template = isWarehouse ? 'warehouse.html' : 'retail.html';
+            const template = isWarehouse ? '/static/warehouse.html' : '/static/retail.html';
             try {
                 // Load HTML template
                 const response = await fetch(template);
@@ -125,7 +125,7 @@
 
                 // Load and execute constants.js first
                 const constantsScript = document.createElement('script');
-                constantsScript.src = 'js/constants.js';
+                constantsScript.src = '/static/js/constants.js';
                 document.body.appendChild(constantsScript);
 
                 // Wait for constants.js to load and load lot codes
@@ -138,7 +138,7 @@
 
                 // Load and execute template-specific script
                 const templateScript = document.createElement('script');
-                templateScript.src = isWarehouse ? 'js/warehouse.js' : 'js/retail.js';
+                templateScript.src = isWarehouse ? '/static/js/warehouse.js' : '/static/js/retail.js';
                 document.body.appendChild(templateScript);
 
                 // Wait for template script to load

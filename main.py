@@ -53,25 +53,13 @@ SKUMAP = {
     "860008221971": "SK-PW-RL",
 }
 
-@app.route("/", methods=["GET"])
-def home():
-    return send_from_directory(app.static_folder, "index.html")
+@app.route('/')
+def index():
+    return send_from_directory('static', 'index.html')
 
-@app.route("/retail.html")
-def retail():
-    return send_from_directory(app.static_folder, "retail.html")
-
-@app.route("/warehouse.html")
-def warehouse():
-    return send_from_directory(app.static_folder, "warehouse.html")
-
-@app.route("/css/<path:filename>")
-def serve_css(filename):
-    return send_from_directory(os.path.join(app.static_folder, "css"), filename)
-
-@app.route("/js/<path:filename>")
-def serve_js(filename):
-    return send_from_directory(os.path.join(app.static_folder, "js"), filename)
+@app.route('/<path:path>')
+def serve_static(path):
+    return send_from_directory('static', path)
 
 @app.route('/get-lot-codes', methods=['GET'])
 def get_lot_codes():
