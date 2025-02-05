@@ -220,9 +220,7 @@ function updateTotals() {
         // Convert count to number, default to 0 if invalid
         const count = parseInt(countCell.textContent.trim()) || 0;
         
-        // Count cases if:
-        // 1. SKU starts with WH (case)
-        // 2. U/M is explicitly "CS"
+        // Only count if it's a case (WH or CS)
         const isCase = skuCell.textContent.trim().toUpperCase().startsWith("WH") || 
                       umCell.textContent.trim().toUpperCase() === "CS";
         
@@ -239,7 +237,7 @@ function updateTotals() {
         }
     });
 
-    // Update all total displays
+    // Update warehouse-specific totals
     const totalElements = {
         shipped: document.querySelector('.totals div:first-child span'),
         confirmed: document.querySelector('.totals div:last-child span'),
@@ -247,20 +245,10 @@ function updateTotals() {
         pallet2: document.querySelector('.signatures div div:last-child span')
     };
 
-    // Update totals with validation
     if (totalElements.shipped) totalElements.shipped.textContent = total;
     if (totalElements.confirmed) totalElements.confirmed.textContent = total;
-    
-    // Only update pallet totals if they exist and have values
     if (totalElements.pallet1) totalElements.pallet1.textContent = pallet1Total;
     if (totalElements.pallet2) totalElements.pallet2.textContent = pallet2Total;
-
-    // Log totals for debugging
-    console.log('Case Totals:', {
-        total,
-        pallet1: pallet1Total,
-        pallet2: pallet2Total
-    });
 }
 
 function addUmCellListeners() {

@@ -123,6 +123,10 @@
                 const html = await response.text();
                 contentDiv.innerHTML = html;
 
+                // Remove any existing scripts first
+                const oldScripts = document.querySelectorAll('script[src*="/js/"]');
+                oldScripts.forEach(script => script.remove());
+
                 // Load and execute constants.js first
                 const constantsScript = document.createElement('script');
                 constantsScript.src = '/js/constants.js';
@@ -165,14 +169,6 @@
 
         // Handle template switching
         templateToggle.addEventListener('change', (e) => {
-            // Remove old scripts
-            const oldScripts = document.querySelectorAll('script[src*="/js/"]');
-            oldScripts.forEach(script => script.remove());
-            
-            // Clear the content div
-            contentDiv.innerHTML = '';
-            
-            // Load new template
             loadTemplate(e.target.checked);
         });
     </script>

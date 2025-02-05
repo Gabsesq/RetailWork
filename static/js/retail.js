@@ -18,7 +18,6 @@ function renderTable() {
     }
     
     addCountCellListeners();
-    updateTotals();
 }
 
 function createRow() {
@@ -56,6 +55,12 @@ function createRow() {
     return tr;
 }
 
+// Add a helper function to check if SKU should use "Set"
+function shouldUseSet(sku) {
+    const upperSku = sku.toUpperCase();
+    return upperSku.startsWith("DB") || upperSku.startsWith("PR-INT-CS");
+}
+
 function handleSkuInput(event) {
     const td = event.target;
     const tr = td.parentElement;
@@ -69,7 +74,8 @@ function handleSkuInput(event) {
             td.textContent = SKUMAP[barcode];
             
             const umCell = tr.children[3];
-            umCell.textContent = "EA";
+            // Set U/M to "Set" if SKU starts with "DB" or "PR-INT-CS", otherwise "EA"
+            umCell.textContent = shouldUseSet(SKUMAP[barcode]) ? "Set" : "EA";
             
             const countCell = tr.children[4];
             if (!countCell.textContent) {
@@ -82,17 +88,25 @@ function handleSkuInput(event) {
             }
             
             checkForEmptyRow();
-            updateTotals();
             return;
         }
     }
     
-    // Check for existing rows with same SKU
-    const rows = Array.from(document.querySelectorAll('#excel-table tr')).reverse();
-    let existingRow = null;
-    
-    // For WH cases or text input
+    // For manual text input
     if (inputValue && !inputValue.startsWith("8")) {
+        const umCell = tr.children[3];
+        if (inputValue.toUpperCase().startsWith("WH")) {
+            umCell.textContent = "CS";
+        } else if (shouldUseSet(inputValue)) {
+            umCell.textContent = "Set";
+        } else {
+            umCell.textContent = "EA";
+        }
+        
+        // Rest of the existing row handling...
+        const rows = Array.from(document.querySelectorAll('#excel-table tr')).reverse();
+        let existingRow = null;
+        
         // Look for existing row with same SKU text
         for (let row of rows) {
             if (row !== tr && 
@@ -117,21 +131,18 @@ function handleSkuInput(event) {
                 }
             });
         } else {
-            // Set up new row for WH case
+            // Set up new row
+            const lotCell = tr.children[1];
             if (inputValue.toUpperCase().startsWith("WH")) {
-                const lotCell = tr.children[1];
                 if (lotCell.querySelector('select')) {
                     lotCell.innerHTML = '';
                     lotCell.contentEditable = true;
                 }
-                
-                const umCell = tr.children[3];
-                umCell.textContent = "CS";
-                
-                const countCell = tr.children[4];
-                if (!countCell.textContent) {
-                    countCell.textContent = "1";
-                }
+            }
+            
+            const countCell = tr.children[4];
+            if (!countCell.textContent) {
+                countCell.textContent = "1";
             }
         }
     }
@@ -142,6 +153,9 @@ function handleSkuInput(event) {
             const skuName = SKUMAP[inputValue];
             
             // Look for existing row with same SKU
+            const rows = Array.from(document.querySelectorAll('#excel-table tr')).reverse();
+            let existingRow = null;
+            
             for (let row of rows) {
                 if (row !== tr && row.children[0].textContent.trim() === skuName) {
                     existingRow = row;
@@ -167,7 +181,8 @@ function handleSkuInput(event) {
                 // Set up new row
                 td.textContent = skuName;
                 const umCell = tr.children[3];
-                umCell.textContent = "EA";
+                // Set U/M to "Set" if SKU starts with "DB" or "PR-INT-CS", otherwise "EA"
+                umCell.textContent = shouldUseSet(skuName) ? "Set" : "EA";
                 
                 const countCell = tr.children[4];
                 if (!countCell.textContent) {
@@ -183,7 +198,6 @@ function handleSkuInput(event) {
     }
     
     checkForEmptyRow();
-    updateTotals();
 }
 
 function handleLotSelection(event) {
