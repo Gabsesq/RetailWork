@@ -27,6 +27,11 @@ class ExcelFileHandler(FileSystemEventHandler):
                 # Git operations
                 repo = git.Repo(REPO_PATH)
                 
+                # Pull latest changes first
+                origin = repo.remote('origin')
+                origin.pull()
+                print("Pulled latest changes from repository")
+                
                 # Add the file
                 repo.index.add([DEST_FILE])
                 
@@ -35,7 +40,6 @@ class ExcelFileHandler(FileSystemEventHandler):
                 repo.index.commit(commit_message)
                 
                 # Push to remote
-                origin = repo.remote('origin')
                 origin.push()
                 
                 print("Changes committed and pushed to repository")
@@ -66,6 +70,19 @@ def start_watching():
     
     observer.join()
 
+# Add a function to manually sync
+def sync_workspace():
+    try:
+        repo = git.Repo(REPO_PATH)
+        origin = repo.remote('origin')
+        
+        print("Pulling latest changes...")
+        origin.pull()
+        print("Workspace updated successfully!")
+        
+    except Exception as e:
+        print(f"Error syncing workspace: {str(e)}")
+
 if __name__ == "__main__":
     # Install required packages
     try:
@@ -74,5 +91,10 @@ if __name__ == "__main__":
     except ImportError:
         print("Installing required packages...")
         os.system('pip install watchdog gitpython')
+    
+    # Add option to sync workspace
+    choice = input("Do you want to sync your workspace before starting the watcher? (y/n): ")
+    if choice.lower() == 'y':
+        sync_workspace()
         
     start_watching() 

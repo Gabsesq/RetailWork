@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retail Picklist</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <h1 class="header">RETAIL PICKLIST / PALLET CONFIRMATION</h1>
+    <div class="order-info">
+        <div class="info-row">
+            <div class="info-item">
+                <span class="label">Processed By:</span>
+                <span contenteditable="true" class="input-field"></span>
+            </div>
+            <div class="info-item">
+                <span class="label">Order Type:</span>
+                <span contenteditable="true" class="input-field"></span>
+            </div>
+            <div class="info-item">
+                <span class="label">PO/SO#:</span>
+                <span contenteditable="true" class="so-number-box"></span>
+            </div>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>SKU</th>
+                <th>LOT</th>
+                <th>B/B</th>
+                <th>U/M</th>
+                <th>COUNT</th>
+            </tr>
+        </thead>
+        <tbody id="excel-table">
+        </tbody>
+    </table>
+
+    <div class="signature-line">
+        <div class="signature-container">
+            <div class="line"></div>
+            <span class="signature-label">Signature</span>
+        </div>
+    </div>
+
+    <div class="button-container">
+        <button id="printButton" class="action-button">Print</button>
+        <button id="clearButton" class="action-button">Clear</button>
+    </div>
+</body>
+</html> 

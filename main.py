@@ -4,16 +4,7 @@ from flask_cors import CORS
 import os
 
 app = Flask(__name__, static_folder='static')
-CORS(app, resources={
-    r"/get-lot-codes": {
-        "origins": [
-            "https://your-heroku-app-name.herokuapp.com",
-            "https://retailpr-f15aaf777d4b.herokuapp.com",
-            "http://localhost:5000",
-            "http://127.0.0.1:5000"
-        ]
-    }
-})
+CORS(app)
 
 # Use environment variable for port
 port = int(os.environ.get("PORT", 5000))
@@ -65,6 +56,22 @@ SKUMAP = {
 @app.route("/", methods=["GET"])
 def home():
     return send_from_directory(app.static_folder, "index.html")
+
+@app.route("/retail.html")
+def retail():
+    return send_from_directory(app.static_folder, "retail.html")
+
+@app.route("/warehouse.html")
+def warehouse():
+    return send_from_directory(app.static_folder, "warehouse.html")
+
+@app.route("/css/<path:filename>")
+def serve_css(filename):
+    return send_from_directory(os.path.join(app.static_folder, "css"), filename)
+
+@app.route("/js/<path:filename>")
+def serve_js(filename):
+    return send_from_directory(os.path.join(app.static_folder, "js"), filename)
 
 @app.route('/get-lot-codes', methods=['GET'])
 def get_lot_codes():
