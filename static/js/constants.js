@@ -45,7 +45,7 @@ const SKUMAP = {
     "860008221971": "SK-PW-RL",
 };
 
-window.LOT_CODES = {}; // Make LOT_CODES globally accessible
+window.LOT_CODES = {}; // Will be populated from JSON
 
 // Shared utility functions
 function normalizeSkuName(sku) {
@@ -61,24 +61,33 @@ function normalizeSkuName(sku) {
 
 async function loadLotCodes() {
     try {
-        console.log("Fetching lot codes...");
-        const response = await fetch(`${BASE_URL}/get-lot-codes`);
-        const result = await response.json();
-        if (result.status === "success") {
-            window.LOT_CODES = result.data;
-            console.log("Loaded lot codes:", window.LOT_CODES);
-            return true;
+        const response = await fetch('/js/lot_codes.json');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
+        window.LOT_CODES = await response.json();
+        console.log("Successfully loaded lot codes:", Object.keys(window.LOT_CODES).length);
+        return true;
     } catch (error) {
         console.error("Error loading lot codes:", error);
+        return false;
     }
-    return false;
 }
 
 // Make updateLotOptions a global function
 window.updateLotOptions = function(select, sku) {
+    if (!window.LOT_CODES || Object.keys(window.LOT_CODES).length === 0) {
+        console.error("Lot codes not loaded properly");
+        // Try to reload lot codes
+        loadLotCodes().then(() => {
+            // Retry updating options after reload
+            updateLotOptions(select, sku);
+        });
+        return;
+    }
+
     console.log("\nUpdating lot options for:", sku);
-    console.log("Current LOT_CODES:", window.LOT_CODES);
+    console.log("Available lot codes:", Object.keys(window.LOT_CODES).length);
     
     select.innerHTML = "";
     select.appendChild(new Option("", ""));
@@ -243,4 +252,14 @@ window.addEventListener('beforeunload', (e) => {
         e.preventDefault();
         e.returnValue = '';
     }
+});
+
+// Add at the top of constants.js
+window.addEventListener('online', function() {
+    console.log('Network connection restored');
+    loadLotCodes(); // Reload lot codes when connection is restored
+});
+
+window.addEventListener('offline', function() {
+    console.log('Network connection lost');
 }); 

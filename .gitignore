@@ -6,8 +6,8 @@
 !main.py
 !static/
 !static/*
-!LotCode.xlsx
 !static/css/
 !static/js/
 !static/css/styles.css
 !static/js/*.js
+!static/js/lot_codes.json

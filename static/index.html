@@ -132,13 +132,28 @@
                 constantsScript.src = '/js/constants.js';
                 document.body.appendChild(constantsScript);
 
-                // Wait for constants.js to load and load lot codes
-                await new Promise((resolve) => {
-                    constantsScript.onload = async () => {
-                        await loadLotCodes(); // Load lot codes before proceeding
-                        resolve();
-                    };
-                });
+                let lotCodesLoaded = false;
+                let retryCount = 0;
+                const maxRetries = 3;
+
+                while (!lotCodesLoaded && retryCount < maxRetries) {
+                    try {
+                        await new Promise((resolve) => {
+                            constantsScript.onload = async () => {
+                                lotCodesLoaded = await loadLotCodes();
+                                resolve();
+                            };
+                        });
+                    } catch (error) {
+                        console.error(`Attempt ${retryCount + 1} failed:`, error);
+                        retryCount++;
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                }
+
+                if (!lotCodesLoaded) {
+                    alert("Warning: Lot codes failed to load. Some features may not work correctly. Please refresh the page.");
+                }
 
                 // Load and execute template-specific script
                 const templateScript = document.createElement('script');

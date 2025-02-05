@@ -10,3 +10,10 @@ manually overriding count updates saved count
 fix weird bb dates
 Lot code dates, make sure you're pulling oldest lot code
 Manually count numbers pull numbers from Quickbooks, make sure QTY is correct
+
+JUST HAD A THOUGHT
+ may be able to get rid of flask backend. If file watcher can 
+ do more than just detect changes, maybe detect the change, add it to 
+ some kind of JSON file, and push that JSON to heroku. Just a static file
+ that occasionally changes and is pushed based on file watcher instead of pushing 
+ the LotCode.xlsx
