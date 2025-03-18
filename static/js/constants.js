@@ -53,9 +53,9 @@ function normalizeSkuName(sku) {
     return sku.toString()
         .trim()
         .replace(/^ts-/i, "TS-")
-        .replace(/[&-]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
+        .replace(/[&-]/g, '')  // Remove & and -
+        .replace(/\s+/g, '')   // Remove all spaces
+        .replace(/in1/i, 'IN1')  // Normalize "in1" to "IN1"
         .toUpperCase();
 }
 
