@@ -3,6 +3,7 @@ window.onload = async () => {
     await loadLotCodes();
     renderTable();
     restoreState();
+    addFormattingToExistingCells();
 };
 
 window.renderTable = renderTable;
@@ -27,6 +28,7 @@ function createRow() {
     const skuTd = document.createElement("td");
     skuTd.contentEditable = true;
     skuTd.addEventListener("input", handleSkuInput);
+    addCellFormatting(skuTd);
     tr.appendChild(skuTd);
     
     // LOT cell
@@ -40,19 +42,53 @@ function createRow() {
     // B/B cell
     const bbTd = document.createElement("td");
     bbTd.contentEditable = true;
+    addCellFormatting(bbTd);
     tr.appendChild(bbTd);
     
     // U/M cell
     const umTd = document.createElement("td");
     umTd.contentEditable = true;
+    addCellFormatting(umTd);
     tr.appendChild(umTd);
     
     // COUNT cell
     const countTd = document.createElement("td");
     countTd.contentEditable = true;
+    addCellFormatting(countTd);
     tr.appendChild(countTd);
     
     return tr;
+}
+
+// Add function to prevent line breaks and normalize spaces
+function addCellFormatting(cell) {
+    // Prevent line breaks
+    cell.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+        }
+    });
+
+    // Normalize spaces on paste
+    cell.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text');
+        const normalizedText = text.replace(/\s+/g, ' ').trim();
+        document.execCommand('insertText', false, normalizedText);
+    });
+
+    // Normalize spaces on blur
+    cell.addEventListener('blur', () => {
+        const normalizedText = cell.textContent.replace(/\s+/g, ' ').trim();
+        cell.textContent = normalizedText;
+    });
+}
+
+// Add formatting to existing editable cells
+function addFormattingToExistingCells() {
+    document.querySelectorAll('[contenteditable="true"]').forEach(cell => {
+        addCellFormatting(cell);
+    });
 }
 
 // Add a helper function to check if SKU should use "Set"

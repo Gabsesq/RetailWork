@@ -6,6 +6,7 @@ window.onload = async () => {
     await loadLotCodes();
     renderTable();
     restoreState();
+    addFormattingToExistingCells();
 };
 
 function renderTable() {
@@ -31,34 +32,71 @@ function createRow() {
     const skuTd = document.createElement("td");
     skuTd.contentEditable = true;
     skuTd.addEventListener("input", handleSkuInput);
+    addCellFormatting(skuTd);
     tr.appendChild(skuTd);
     
     // LOT cell
     const lotTd = document.createElement("td");
     lotTd.contentEditable = true;
+    addCellFormatting(lotTd);
     tr.appendChild(lotTd);
     
     // U/M cell
     const umTd = document.createElement("td");
     umTd.contentEditable = true;
+    addCellFormatting(umTd);
     tr.appendChild(umTd);
     
     // CNT1 cell
     const countTd = document.createElement("td");
     countTd.contentEditable = true;
+    addCellFormatting(countTd);
     tr.appendChild(countTd);
     
     // PALLET 1 cell
     const pallet1Td = document.createElement("td");
     pallet1Td.contentEditable = true;
+    addCellFormatting(pallet1Td);
     tr.appendChild(pallet1Td);
     
     // PALLET 2 cell
     const pallet2Td = document.createElement("td");
     pallet2Td.contentEditable = true;
+    addCellFormatting(pallet2Td);
     tr.appendChild(pallet2Td);
     
     return tr;
+}
+
+// Add function to prevent line breaks and normalize spaces
+function addCellFormatting(cell) {
+    // Prevent line breaks
+    cell.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+        }
+    });
+
+    // Normalize spaces on paste
+    cell.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text');
+        const normalizedText = text.replace(/\s+/g, ' ').trim();
+        document.execCommand('insertText', false, normalizedText);
+    });
+
+    // Normalize spaces on blur
+    cell.addEventListener('blur', () => {
+        const normalizedText = cell.textContent.replace(/\s+/g, ' ').trim();
+        cell.textContent = normalizedText;
+    });
+}
+
+// Add formatting to existing editable cells
+function addFormattingToExistingCells() {
+    document.querySelectorAll('[contenteditable="true"]').forEach(cell => {
+        addCellFormatting(cell);
+    });
 }
 
 function handleSkuInput(event) {
@@ -75,9 +113,10 @@ function handleSkuInput(event) {
             const lotCell = tr.children[1];
             const umCell = tr.children[2];
             
-            umCell.textContent = "EA";
+            // Always set to CS in warehouse template
+            umCell.textContent = "CS";
             
-            // Create and add select element for EA items
+            // Create and add select element
             const lotSelect = document.createElement("select");
             lotSelect.appendChild(new Option("", ""));
             lotSelect.addEventListener("change", handleLotSelection);
@@ -98,12 +137,16 @@ function handleSkuInput(event) {
         }
     }
     
-    // Check for existing rows with same SKU
-    const rows = Array.from(document.querySelectorAll('#excel-table tr')).reverse();
-    let existingRow = null;
-    
-    // For WH-edi or any text input
+    // For manual text input
     if (inputValue && !inputValue.startsWith("8")) {
+        const umCell = tr.children[2];
+        // Always set to CS in warehouse template
+        umCell.textContent = "CS";
+        
+        // Rest of the existing row handling...
+        const rows = Array.from(document.querySelectorAll('#excel-table tr')).reverse();
+        let existingRow = null;
+        
         // Look for existing row with same SKU text
         for (let row of rows) {
             if (row !== tr && 
@@ -130,10 +173,6 @@ function handleSkuInput(event) {
         } else {
             // Set up new row
             const lotCell = tr.children[1];
-            const umCell = tr.children[2];
-            
-            // Set U/M based on whether input starts with "WH"
-            umCell.textContent = inputValue.toUpperCase().startsWith("WH") ? "CS" : "EA";
             
             // Make lot cell editable
             lotCell.innerHTML = '';
@@ -147,12 +186,15 @@ function handleSkuInput(event) {
         }
     }
     
-    // For regular barcode inputs
+    // For barcode inputs
     if (inputValue.length === 12 && inputValue.startsWith("8")) {
         if (SKUMAP[inputValue]) {
             const skuName = SKUMAP[inputValue];
             
             // Look for existing row with same SKU
+            const rows = Array.from(document.querySelectorAll('#excel-table tr')).reverse();
+            let existingRow = null;
+            
             for (let row of rows) {
                 if (row !== tr && row.children[0].textContent.trim() === skuName) {
                     existingRow = row;
@@ -176,9 +218,10 @@ function handleSkuInput(event) {
                 const lotCell = tr.children[1];
                 const umCell = tr.children[2];
                 
-                umCell.textContent = "EA";
+                // Always set to CS in warehouse template
+                umCell.textContent = "CS";
                 
-                // Create and add select element for EA items
+                // Create and add select element
                 const lotSelect = document.createElement("select");
                 lotSelect.appendChild(new Option("", ""));
                 lotSelect.addEventListener("change", handleLotSelection);
@@ -260,8 +303,8 @@ function addUmCellListeners() {
         const skuCell = row.children[0];
         
         const observer = new MutationObserver(() => {
-            if (skuCell.textContent.trim() && !skuCell.textContent.trim().toUpperCase().startsWith("WH")) {
-                umCell.textContent = "EA";
+            if (skuCell.textContent.trim()) {
+                umCell.textContent = "CS";  // Always CS in warehouse template
             }
             updateTotals();
         });
@@ -279,8 +322,8 @@ function handleLotSelection(event) {
     const umCell = tr.children[2];
     const skuCell = tr.children[0];
     
-    if (!skuCell.textContent.trim().toUpperCase().startsWith("WH")) {
-        umCell.textContent = "EA";
+    if (skuCell.textContent.trim()) {
+        umCell.textContent = "CS";  // Always CS in warehouse template
     }
 }
 

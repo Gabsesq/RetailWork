@@ -7,8 +7,8 @@ import git
 import json
 from datetime import datetime
 
-# Configure your path - update to match your actual path
-SOURCE_FILE = "C:\\Users\\Gabby\\OneDrive - Pet Releaf\\Desktop\\RetailWork\\RetailWork\\LotCode.xlsx"
+# Update the source file path
+SOURCE_FILE = r"C:\Users\Gabby\Pet Releaf\Warehouse - Documents\Current Lot Code Data 2.xlsx"
 
 class ExcelHandler(FileSystemEventHandler):
     def __init__(self):
@@ -22,7 +22,7 @@ class ExcelHandler(FileSystemEventHandler):
             return {}
 
     def on_modified(self, event):
-        if event.src_path.endswith(SOURCE_FILE):
+        if event.src_path == SOURCE_FILE:  # Use exact path comparison
             try:
                 print(f"\nChange detected in Excel file at {datetime.now()}")
                 
@@ -83,7 +83,13 @@ class ExcelHandler(FileSystemEventHandler):
         return False
 
 if __name__ == "__main__":
-    print(f"Starting watcher for Excel file...")
+    if not os.path.exists(SOURCE_FILE):
+        print(f"Error: Could not find Excel file at {SOURCE_FILE}")
+        print("Please make sure the file exists and the path is correct.")
+        input("Press Enter to exit...")
+        exit(1)
+
+    print(f"Starting watcher for Excel file: {SOURCE_FILE}")
     print("Press Ctrl+C to stop")
     
     event_handler = ExcelHandler()
