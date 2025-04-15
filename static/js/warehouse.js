@@ -343,7 +343,10 @@ function initializeButtons() {
         const newClearButton = document.getElementById('clearButton');
 
         // Add print functionality
-        newPrintButton.addEventListener('click', () => {
+        newPrintButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Print button clicked');
+            
             const soNumberBox = document.querySelector('.so-number-box');
             if (!soNumberBox) {
                 console.error('Could not find SO number box');
@@ -359,8 +362,21 @@ function initializeButtons() {
                 return;
             }
             
+            // Remove any required styling
             soNumberBox.classList.remove('required');
-            window.print();
+            
+            // Ensure all calculations are up to date
+            updateTotals();
+            
+            // Small delay to ensure DOM is updated
+            setTimeout(() => {
+                try {
+                    window.print();
+                } catch (printError) {
+                    console.error('Error during print:', printError);
+                    alert('There was an error while trying to print. Please try again.');
+                }
+            }, 100);
         });
 
         // Add clear functionality
