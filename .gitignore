@@ -11,3 +11,4 @@
 !static/css/styles.css
 !static/js/*.js
 !static/js/lot_codes.json
+.vercel
