@@ -1,6 +1,6 @@
-const BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-    ? 'http://127.0.0.1:5000'
-    : 'https://retailpr-f15aaf777d4b.herokuapp.com';
+// const BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+//     ? 'http://127.0.0.1:5000'
+//     : 'https://retailpr-f15aaf777d4b.herokuapp.com';
 
 const SKUMAP = {
     "860009592568": "Post-Bio-GH",
@@ -53,9 +53,9 @@ function normalizeSkuName(sku) {
     return sku.toString()
         .trim()
         .replace(/^ts-/i, "TS-")
-        .replace(/[&-]/g, '')  // Remove & and -
-        .replace(/\s+/g, '')   // Remove all spaces
-        .replace(/in1/i, 'IN1')  // Normalize "in1" to "IN1"
+        .replace(/[&-]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
         .toUpperCase();
 }
 

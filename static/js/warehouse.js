@@ -254,6 +254,8 @@ function updateTotals() {
         // Skip empty rows
         if (!row.children[0].textContent.trim()) return;
 
+        const skuCell = row.children[0];
+        const umCell = row.children[2];
         const countCell = row.children[3];
         const pallet1Cell = row.children[4];
         const pallet2Cell = row.children[5];
@@ -261,8 +263,11 @@ function updateTotals() {
         // Convert count to number, default to 0 if invalid
         const count = parseInt(countCell.textContent.trim()) || 0;
         
-        // Add to total (all items in warehouse are cases now)
-        if (row.children[0].textContent.trim()) {  // Only count if SKU exists
+        // Only count if it's a case (WH or CS)
+        const isCase = skuCell.textContent.trim().toUpperCase().startsWith("WH") || 
+                      umCell.textContent.trim().toUpperCase() === "CS";
+        
+        if (isCase) {
             total += count;
             
             // Track pallet totals
