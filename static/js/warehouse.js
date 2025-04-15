@@ -7,7 +7,6 @@ window.onload = async () => {
         await loadLotCodes();
         renderTable();
         restoreState();
-        initializeButtons();
     } catch (error) {
         console.error('Error initializing warehouse:', error);
     }
@@ -322,93 +321,30 @@ function updateTotals() {
     }
 }
 
-// Add this new function
-function initializeButtons() {
-    try {
-        console.log('Initializing buttons...');
-        const printButton = document.getElementById('printButton');
-        const clearButton = document.getElementById('clearButton');
-        
-        if (!printButton || !clearButton) {
-            console.error('Could not find print or clear buttons');
-            return;
-        }
-
-        // Remove any existing listeners
-        printButton.replaceWith(printButton.cloneNode(true));
-        clearButton.replaceWith(clearButton.cloneNode(true));
-
-        // Get fresh references
-        const newPrintButton = document.getElementById('printButton');
-        const newClearButton = document.getElementById('clearButton');
-
-        // Add print functionality
-        newPrintButton.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('Print button clicked');
-            
-            const soNumberBox = document.querySelector('.so-number-box');
-            if (!soNumberBox) {
-                console.error('Could not find SO number box');
-                return;
-            }
-
-            const soNumber = soNumberBox.textContent.trim();
-            
-            if (!soNumber) {
-                soNumberBox.classList.add('required');
-                alert('Please enter a PO/SO number before printing');
-                soNumberBox.focus();
-                return;
-            }
-            
-            // Remove any required styling
-            soNumberBox.classList.remove('required');
-            
-            // Ensure all calculations are up to date
-            updateTotals();
-            
-            // Small delay to ensure DOM is updated
-            setTimeout(() => {
-                try {
-                    window.print();
-                } catch (printError) {
-                    console.error('Error during print:', printError);
-                    alert('There was an error while trying to print. Please try again.');
-                }
-            }, 100);
-        });
-
-        // Add clear functionality
-        newClearButton.addEventListener('click', () => {
-            if (confirm('Are you sure you want to clear all entries? This cannot be undone.')) {
-                // Clear order info
-                document.querySelectorAll('.order-info [contenteditable]').forEach(element => {
-                    element.textContent = '';
-                });
-                
-                // Clear table footer
-                document.querySelectorAll('.table-footer [contenteditable]').forEach(element => {
-                    element.textContent = '';
-                });
-                
-                // Clear table and re-render
-                const tbody = document.getElementById('excel-table');
-                if (tbody) {
-                    tbody.innerHTML = '';
-                    renderTable();
-                }
-
-                // Clear any required styling
-                const soNumberBox = document.querySelector('.so-number-box');
-                if (soNumberBox) {
-                    soNumberBox.classList.remove('required');
-                }
-            }
-        });
-
-        console.log('Buttons initialized successfully');
-    } catch (error) {
-        console.error('Error initializing buttons:', error);
+// Replace the initializeButtons function with direct event listeners
+document.getElementById('printButton').addEventListener('click', function() {
+    const soNumberBox = document.querySelector('.so-number-box');
+    const soNumber = soNumberBox.textContent.trim();
+    
+    if (!soNumber) {
+        soNumberBox.classList.add('required');
+        alert('Please enter a PO/SO number before printing');
+        soNumberBox.focus();
+        return;
     }
-} 
+    
+    soNumberBox.classList.remove('required');
+    window.print();
+});
+
+document.getElementById('clearButton').addEventListener('click', function() {
+    if (confirm('Are you sure you want to clear all entries? This cannot be undone.')) {
+        document.querySelectorAll('.order-info [contenteditable]').forEach(element => {
+            element.textContent = '';
+        });
+        
+        const tbody = document.getElementById('excel-table');
+        tbody.innerHTML = '';
+        renderTable();
+    }
+}); 
