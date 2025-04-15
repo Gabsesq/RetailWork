@@ -123,36 +123,23 @@
                 const html = await response.text();
                 contentDiv.innerHTML = html;
 
-                // Remove any existing scripts first
-                const oldScripts = document.querySelectorAll('script[src*="/js/"]');
-                oldScripts.forEach(script => script.remove());
+                // Only load constants.js if it hasn't been loaded yet
+                if (!window.SKUMAP) {
+                    // Load and execute constants.js first
+                    const constantsScript = document.createElement('script');
+                    constantsScript.src = '/js/constants.js';
+                    document.body.appendChild(constantsScript);
 
-                // Load and execute constants.js first
-                const constantsScript = document.createElement('script');
-                constantsScript.src = '/js/constants.js';
-                document.body.appendChild(constantsScript);
-
-                let lotCodesLoaded = false;
-                let retryCount = 0;
-                const maxRetries = 3;
-
-                while (!lotCodesLoaded && retryCount < maxRetries) {
-                    try {
-                        await new Promise((resolve) => {
-                            constantsScript.onload = async () => {
-                                lotCodesLoaded = await loadLotCodes();
-                                resolve();
-                            };
-                        });
-                    } catch (error) {
-                        console.error(`Attempt ${retryCount + 1} failed:`, error);
-                        retryCount++;
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                    }
-                }
-
-                if (!lotCodesLoaded) {
-                    alert("Warning: Lot codes failed to load. Some features may not work correctly. Please refresh the page.");
+                    // Wait for constants.js to load
+                    await new Promise((resolve) => {
+                        constantsScript.onload = async () => {
+                            const lotCodesLoaded = await loadLotCodes();
+                            if (!lotCodesLoaded) {
+                                console.warn("Warning: Lot codes failed to load");
+                            }
+                            resolve();
+                        };
+                    });
                 }
 
                 // Load and execute template-specific script
