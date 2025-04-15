@@ -114,6 +114,26 @@
     <script>
         const templateToggle = document.getElementById('templateToggle');
         const contentDiv = document.getElementById('templateContent');
+        let constantsLoaded = false;
+
+        async function loadConstants() {
+            if (!constantsLoaded) {
+                const constantsScript = document.createElement('script');
+                constantsScript.src = '/js/constants.js';
+                document.body.appendChild(constantsScript);
+
+                await new Promise((resolve) => {
+                    constantsScript.onload = async () => {
+                        const lotCodesLoaded = await loadLotCodes();
+                        if (!lotCodesLoaded) {
+                            console.warn("Warning: Lot codes failed to load");
+                        }
+                        constantsLoaded = true;
+                        resolve();
+                    };
+                });
+            }
+        }
 
         async function loadTemplate(isWarehouse) {
             const template = isWarehouse ? '/warehouse.html' : '/retail.html';
@@ -123,24 +143,8 @@
                 const html = await response.text();
                 contentDiv.innerHTML = html;
 
-                // Only load constants.js if it hasn't been loaded yet
-                if (!window.SKUMAP) {
-                    // Load and execute constants.js first
-                    const constantsScript = document.createElement('script');
-                    constantsScript.src = '/js/constants.js';
-                    document.body.appendChild(constantsScript);
-
-                    // Wait for constants.js to load
-                    await new Promise((resolve) => {
-                        constantsScript.onload = async () => {
-                            const lotCodesLoaded = await loadLotCodes();
-                            if (!lotCodesLoaded) {
-                                console.warn("Warning: Lot codes failed to load");
-                            }
-                            resolve();
-                        };
-                    });
-                }
+                // Load constants.js if not already loaded
+                await loadConstants();
 
                 // Load and execute template-specific script
                 const templateScript = document.createElement('script');
