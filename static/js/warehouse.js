@@ -3,26 +3,39 @@ window.renderTable = renderTable;
 
 // Load data when the page is loaded
 window.onload = async () => {
-    await loadLotCodes();
-    renderTable();
-    restoreState();
-    addFormattingToExistingCells();
+    try {
+        await loadLotCodes();
+        renderTable();
+        restoreState();
+        addFormattingToExistingCells();
+    } catch (error) {
+        console.error('Error initializing warehouse:', error);
+    }
 };
 
 function renderTable() {
-    const tbody = document.getElementById("excel-table");
-    tbody.innerHTML = "";
+    try {
+        const tbody = document.getElementById("excel-table");
+        if (!tbody) {
+            console.error('Could not find excel-table element');
+            return;
+        }
+        
+        tbody.innerHTML = "";
 
-    // Add initial rows
-    const minRows = 13;
-    for (let i = 0; i < minRows; i++) {
-        tbody.appendChild(createRow());
+        // Add initial rows
+        const minRows = 13;
+        for (let i = 0; i < minRows; i++) {
+            tbody.appendChild(createRow());
+        }
+        
+        addCountCellListeners();
+        addUmCellListeners();
+        addPalletCellListeners();
+        updateTotals();
+    } catch (error) {
+        console.error('Error rendering table:', error);
     }
-    
-    addCountCellListeners();
-    addUmCellListeners();
-    addPalletCellListeners();
-    updateTotals();
 }
 
 function createRow() {
@@ -68,153 +81,45 @@ function createRow() {
     return tr;
 }
 
-// Add function to prevent line breaks and normalize spaces
 function addCellFormatting(cell) {
-    // Prevent line breaks
-    cell.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
+    try {
+        // Prevent line breaks
+        cell.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+            }
+        });
+
+        // Normalize spaces on paste
+        cell.addEventListener('paste', (e) => {
             e.preventDefault();
-        }
-    });
+            const text = (e.clipboardData || window.clipboardData).getData('text');
+            const normalizedText = text.replace(/\s+/g, ' ').trim();
+            document.execCommand('insertText', false, normalizedText);
+        });
 
-    // Normalize spaces on paste
-    cell.addEventListener('paste', (e) => {
-        e.preventDefault();
-        const text = (e.clipboardData || window.clipboardData).getData('text');
-        const normalizedText = text.replace(/\s+/g, ' ').trim();
-        document.execCommand('insertText', false, normalizedText);
-    });
-
-    // Normalize spaces on blur
-    cell.addEventListener('blur', () => {
-        const normalizedText = cell.textContent.replace(/\s+/g, ' ').trim();
-        cell.textContent = normalizedText;
-    });
-}
-
-// Add formatting to existing editable cells
-function addFormattingToExistingCells() {
-    document.querySelectorAll('[contenteditable="true"]').forEach(cell => {
-        addCellFormatting(cell);
-    });
+        // Normalize spaces on blur
+        cell.addEventListener('blur', () => {
+            const normalizedText = cell.textContent.replace(/\s+/g, ' ').trim();
+            cell.textContent = normalizedText;
+        });
+    } catch (error) {
+        console.error('Error adding cell formatting:', error);
+    }
 }
 
 function handleSkuInput(event) {
-    const td = event.target;
-    const tr = td.parentElement;
-    const inputValue = td.textContent.trim();
-    
-    // Check for barcode with quantity prefix
-    if (inputValue.length === 13 && inputValue.startsWith("1") && inputValue.substring(1).startsWith("8")) {
-        const barcode = inputValue.substring(1); // Remove the "1" prefix
-        if (SKUMAP[barcode]) {
-            // Always create new line for prefixed barcodes
-            td.textContent = SKUMAP[barcode];
-            const lotCell = tr.children[1];
-            const umCell = tr.children[2];
-            
-            // Always set to CS in warehouse template
-            umCell.textContent = "CS";
-            
-            // Create and add select element
-            const lotSelect = document.createElement("select");
-            lotSelect.appendChild(new Option("", ""));
-            lotSelect.addEventListener("change", handleLotSelection);
-            lotCell.innerHTML = '';
-            lotCell.appendChild(lotSelect);
-            lotCell.contentEditable = false;
-            
-            updateLotOptions(lotSelect, SKUMAP[barcode]);
-            
-            const countCell = tr.children[3];
-            if (!countCell.textContent) {
-                countCell.textContent = "1";
-            }
-            
-            checkForEmptyRow();
-            updateTotals();
-            return;
-        }
-    }
-    
-    // For manual text input
-    if (inputValue && !inputValue.startsWith("8")) {
-        const umCell = tr.children[2];
-        // Always set to CS in warehouse template
-        umCell.textContent = "CS";
+    try {
+        const td = event.target;
+        const tr = td.parentElement;
+        const inputValue = td.textContent.trim();
         
-        // Rest of the existing row handling...
-        const rows = Array.from(document.querySelectorAll('#excel-table tr')).reverse();
-        let existingRow = null;
-        
-        // Look for existing row with same SKU text
-        for (let row of rows) {
-            if (row !== tr && 
-                row.children[0].textContent.trim().toLowerCase() === inputValue.toLowerCase()) {
-                existingRow = row;
-                break;
-            }
-        }
-        
-        if (existingRow) {
-            // Add to existing row's count
-            const countCell = existingRow.children[3];
-            const currentCount = parseInt(countCell.textContent.trim()) || 0;
-            const newCount = parseInt(tr.children[3].textContent.trim()) || 1;
-            countCell.textContent = currentCount + newCount;
-            
-            // Clear the current row
-            Array.from(tr.children).forEach(cell => {
-                cell.textContent = '';
-            });
-            
-            // Update totals after combining
-            updateTotals();
-        } else {
-            // Set up new row
-            const lotCell = tr.children[1];
-            
-            // Make lot cell editable
-            lotCell.innerHTML = '';
-            lotCell.contentEditable = true;
-            
-            // Set default count
-            const countCell = tr.children[3];
-            if (!countCell.textContent) {
-                countCell.textContent = "1";
-            }
-        }
-    }
-    
-    // For barcode inputs
-    if (inputValue.length === 12 && inputValue.startsWith("8")) {
-        if (SKUMAP[inputValue]) {
-            const skuName = SKUMAP[inputValue];
-            
-            // Look for existing row with same SKU
-            const rows = Array.from(document.querySelectorAll('#excel-table tr')).reverse();
-            let existingRow = null;
-            
-            for (let row of rows) {
-                if (row !== tr && row.children[0].textContent.trim() === skuName) {
-                    existingRow = row;
-                    break;
-                }
-            }
-            
-            if (existingRow) {
-                // Add to existing row's count
-                const countCell = existingRow.children[3];
-                const currentCount = parseInt(countCell.textContent) || 0;
-                countCell.textContent = currentCount + 1;
-                
-                // Clear the current row
-                Array.from(tr.children).forEach(cell => {
-                    cell.textContent = '';
-                });
-            } else {
-                // Set up new row
-                td.textContent = skuName;
+        // Check for barcode with quantity prefix
+        if (inputValue.length === 13 && inputValue.startsWith("1") && inputValue.substring(1).startsWith("8")) {
+            const barcode = inputValue.substring(1); // Remove the "1" prefix
+            if (SKUMAP[barcode]) {
+                // Always create new line for prefixed barcodes
+                td.textContent = SKUMAP[barcode];
                 const lotCell = tr.children[1];
                 const umCell = tr.children[2];
                 
@@ -229,18 +134,126 @@ function handleSkuInput(event) {
                 lotCell.appendChild(lotSelect);
                 lotCell.contentEditable = false;
                 
-                updateLotOptions(lotSelect, skuName);
+                updateLotOptions(lotSelect, SKUMAP[barcode]);
                 
+                const countCell = tr.children[3];
+                if (!countCell.textContent) {
+                    countCell.textContent = "1";
+                }
+                
+                checkForEmptyRow();
+                updateTotals();
+                return;
+            }
+        }
+        
+        // For manual text input
+        if (inputValue && !inputValue.startsWith("8")) {
+            const umCell = tr.children[2];
+            // Always set to CS in warehouse template
+            umCell.textContent = "CS";
+            
+            // Rest of the existing row handling...
+            const rows = Array.from(document.querySelectorAll('#excel-table tr')).reverse();
+            let existingRow = null;
+            
+            // Look for existing row with same SKU text
+            for (let row of rows) {
+                if (row !== tr && 
+                    row.children[0].textContent.trim().toLowerCase() === inputValue.toLowerCase()) {
+                    existingRow = row;
+                    break;
+                }
+            }
+            
+            if (existingRow) {
+                // Add to existing row's count
+                const countCell = existingRow.children[3];
+                const currentCount = parseInt(countCell.textContent.trim()) || 0;
+                const newCount = parseInt(tr.children[3].textContent.trim()) || 1;
+                countCell.textContent = currentCount + newCount;
+                
+                // Clear the current row
+                Array.from(tr.children).forEach(cell => {
+                    cell.textContent = '';
+                });
+                
+                // Update totals after combining
+                updateTotals();
+            } else {
+                // Set up new row
+                const lotCell = tr.children[1];
+                
+                // Make lot cell editable
+                lotCell.innerHTML = '';
+                lotCell.contentEditable = true;
+                
+                // Set default count
                 const countCell = tr.children[3];
                 if (!countCell.textContent) {
                     countCell.textContent = "1";
                 }
             }
         }
+        
+        // For barcode inputs
+        if (inputValue.length === 12 && inputValue.startsWith("8")) {
+            if (SKUMAP[inputValue]) {
+                const skuName = SKUMAP[inputValue];
+                
+                // Look for existing row with same SKU
+                const rows = Array.from(document.querySelectorAll('#excel-table tr')).reverse();
+                let existingRow = null;
+                
+                for (let row of rows) {
+                    if (row !== tr && row.children[0].textContent.trim() === skuName) {
+                        existingRow = row;
+                        break;
+                    }
+                }
+                
+                if (existingRow) {
+                    // Add to existing row's count
+                    const countCell = existingRow.children[3];
+                    const currentCount = parseInt(countCell.textContent) || 0;
+                    countCell.textContent = currentCount + 1;
+                    
+                    // Clear the current row
+                    Array.from(tr.children).forEach(cell => {
+                        cell.textContent = '';
+                    });
+                } else {
+                    // Set up new row
+                    td.textContent = skuName;
+                    const lotCell = tr.children[1];
+                    const umCell = tr.children[2];
+                    
+                    // Always set to CS in warehouse template
+                    umCell.textContent = "CS";
+                    
+                    // Create and add select element
+                    const lotSelect = document.createElement("select");
+                    lotSelect.appendChild(new Option("", ""));
+                    lotSelect.addEventListener("change", handleLotSelection);
+                    lotCell.innerHTML = '';
+                    lotCell.appendChild(lotSelect);
+                    lotCell.contentEditable = false;
+                    
+                    updateLotOptions(lotSelect, skuName);
+                    
+                    const countCell = tr.children[3];
+                    if (!countCell.textContent) {
+                        countCell.textContent = "1";
+                    }
+                }
+            }
+        }
+        
+        checkForEmptyRow();
+        updateTotals();
+    } catch (error) {
+        console.error('Error handling SKU input:', error);
     }
-    
-    checkForEmptyRow();
-    updateTotals();
 }
 
 function updateTotals() {
@@ -328,34 +341,47 @@ function handleLotSelection(event) {
 }
 
 // Add print and clear functionality
-document.getElementById('printButton').addEventListener('click', function() {
-    const soNumberBox = document.querySelector('.so-number-box');
-    const soNumber = soNumberBox.textContent.trim();
-    
-    if (!soNumber) {
-        soNumberBox.classList.add('required');
-        alert('Please enter a PO/SO number before printing');
-        soNumberBox.focus();
-        return;
-    }
-    
-    soNumberBox.classList.remove('required');
-    window.print();
-});
-
-document.getElementById('clearButton').addEventListener('click', function() {
-    if (confirm('Are you sure you want to clear all entries? This cannot be undone.')) {
-        document.querySelectorAll('.order-info [contenteditable]').forEach(element => {
-            element.textContent = '';
-        });
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        const printButton = document.getElementById('printButton');
+        const clearButton = document.getElementById('clearButton');
         
-        document.querySelectorAll('.table-footer [contenteditable]').forEach(element => {
-            element.textContent = '';
-        });
+        if (printButton) {
+            printButton.addEventListener('click', function() {
+                const soNumberBox = document.querySelector('.so-number-box');
+                const soNumber = soNumberBox.textContent.trim();
+                
+                if (!soNumber) {
+                    soNumberBox.classList.add('required');
+                    alert('Please enter a PO/SO number before printing');
+                    soNumberBox.focus();
+                    return;
+                }
+                
+                soNumberBox.classList.remove('required');
+                window.print();
+            });
+        }
         
-        const tbody = document.getElementById('excel-table');
-        tbody.innerHTML = '';
-        renderTable();
+        if (clearButton) {
+            clearButton.addEventListener('click', function() {
+                if (confirm('Are you sure you want to clear all entries? This cannot be undone.')) {
+                    document.querySelectorAll('.order-info [contenteditable]').forEach(element => {
+                        element.textContent = '';
+                    });
+                    
+                    document.querySelectorAll('.table-footer [contenteditable]').forEach(element => {
+                        element.textContent = '';
+                    });
+                    
+                    const tbody = document.getElementById('excel-table');
+                    tbody.innerHTML = '';
+                    renderTable();
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Error setting up buttons:', error);
     }
 });
 
