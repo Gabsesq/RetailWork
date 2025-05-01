@@ -50,13 +50,17 @@ window.LOT_CODES = {}; // Will be populated from JSON
 // Shared utility functions
 function normalizeSkuName(sku) {
     if (!sku) return '';
-    return sku.toString()
-        .trim()
-        .replace(/^ts-/i, "TS-")
-        .replace(/[&-]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toUpperCase();
+    // Convert to uppercase and remove all spaces and special characters
+    let normalized = sku.toUpperCase().replace(/[\s&-]/g, '');
+    // Special case for 2in1
+    if (normalized === '2IN1SKCT') {
+        normalized = '2 IN 1-SK-CT';
+    }
+    // Special case for TS-Itchy-Dry
+    if (normalized === 'TSITCHYDRYSHAMPOO') {
+        normalized = 'TS-ITCHY&DRYSHAMPOO';
+    }
+    return normalized;
 }
 
 async function loadLotCodes() {
