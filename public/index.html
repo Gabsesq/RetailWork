@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+
+        .template-toggle {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+        }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background-color: #f5f5f5;
+            padding: 8px 16px;
+            border-radius: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ff4444;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: #2196F3;
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(30px);
+        }
+
+        .template-label {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        #templateContent {
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        iframe {
+                width: 100%;
+            height: calc(100vh - 150px);
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="template-toggle">
+        <div class="toggle-container">
+            <span class="template-label">Retail</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="templateToggle">
+                <span class="toggle-slider"></span>
+            </label>
+            <span class="template-label">Warehouse</span>
+        </div>
+    </div>
+    <div id="templateContent"></div>
+
+    <script>
+        const templateToggle = document.getElementById('templateToggle');
+        const contentDiv = document.getElementById('templateContent');
+        let constantsLoaded = false;
+
+        async function loadConstants() {
+            if (!constantsLoaded) {
+                const constantsScript = document.createElement('script');
+                constantsScript.src = '/js/constants.js';
+                document.body.appendChild(constantsScript);
+
+                await new Promise((resolve) => {
+                    constantsScript.onload = async () => {
+                        const lotCodesLoaded = await loadLotCodes();
+                        if (!lotCodesLoaded) {
+                            console.warn("Warning: Lot codes failed to load");
+                        }
+                        constantsLoaded = true;
+                        resolve();
+                    };
+                });
+            }
+        }
+
+        async function loadTemplate(isWarehouse) {
+            const template = isWarehouse ? '/warehouse.html' : '/retail.html';
+            try {
+                // Load HTML template
+                const response = await fetch(template);
+                const html = await response.text();
+                contentDiv.innerHTML = html;
+
+                // Remove any existing scripts first
+                const oldScripts = document.querySelectorAll('script[src*="/js/"]');
+                oldScripts.forEach(script => script.remove());
+
+                // Load and execute constants.js first
+                const constantsScript = document.createElement('script');
+                constantsScript.src = '/js/constants.js';
+                document.body.appendChild(constantsScript);
+
+                let lotCodesLoaded = false;
+                let retryCount = 0;
+                const maxRetries = 3;
+
+                while (!lotCodesLoaded && retryCount < maxRetries) {
+                    try {
+                        await new Promise((resolve) => {
+                            constantsScript.onload = async () => {
+                                lotCodesLoaded = await loadLotCodes();
+                                resolve();
+                            };
+                        });
+                    } catch (error) {
+                        console.error(`Attempt ${retryCount + 1} failed:`, error);
+                        retryCount++;
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                }
+
+                if (!lotCodesLoaded) {
+                    alert("Warning: Lot codes failed to load. Some features may not work correctly. Please refresh the page.");
+                }
+
+                // Load and execute template-specific script
+                const templateScript = document.createElement('script');
+                templateScript.src = isWarehouse ? '/js/warehouse.js' : '/js/retail.js';
+                document.body.appendChild(templateScript);
+
+                // Wait for template script to load
+                await new Promise((resolve) => {
+                    templateScript.onload = resolve;
+                });
+
+                // Initialize the template after scripts are loaded
+                if (window.renderTable) {
+                    window.renderTable();
+                }
+
+                // Remove back button since we're using the toggle
+                const backButton = document.querySelector('.home-link');
+                if (backButton) backButton.remove();
+
+            } catch (error) {
+                console.error('Error loading template:', error);
+            }
+        }
+
+        // Load initial template
+        loadTemplate(templateToggle.checked);
+
+        // Handle template switching
+        templateToggle.addEventListener('change', (e) => {
+            loadTemplate(e.target.checked);
+        });
+    </script>
+</body>
+</html>

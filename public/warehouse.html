@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Picklist</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        @media print {
+            .button-container {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1 class="header">WAREHOUSE PICKLIST / PALLET CONFIRMATION</h1>
+    <div class="order-info">
+        <div class="info-row">
+            <div class="info-item">
+                <span class="label">Processed By:</span>
+                <span contenteditable="true" class="input-field"></span>
+            </div>
+            <div class="info-item">
+                <span class="label">Order Type:</span>
+                <span contenteditable="true" class="input-field"></span>
+            </div>
+            <div class="info-item">
+                <span class="label">PO/SO#:</span>
+                <span contenteditable="true" class="so-number-box"></span>
+            </div>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>SKU</th>
+                <th>LOT</th>
+                <th>U/M</th>
+                <th>CNT1</th>
+                <th>PALLET 1</th>
+                <th>PALLET 2</th>
+            </tr>
+        </thead>
+        <tbody id="excel-table">
+        </tbody>
+    </table>
+
+    <div class="table-footer">
+        <div class="totals">
+            <div>Total Cases Shipped: <span contenteditable="true"></span></div>
+            <div>Total Cases Confirmed: <span contenteditable="true"></span></div>
+        </div>
+        <div class="signatures">
+            <div>
+                <div>Total Cases on Pallet 1: <span contenteditable="true"></span></div>
+                <div>Total Cases on Pallet 2: <span contenteditable="true"></span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="signature-line">
+        <div class="signature-container">
+            <div class="line"></div>
+            <span class="signature-label">Signature</span>
+        </div>
+    </div>
+
+    <div class="button-container">
+        <button id="printButton" class="action-button">Print</button>
+        <button id="clearButton" class="action-button">Clear</button>
+    </div>
+</body>
+</html> 
