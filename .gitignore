@@ -11,3 +11,12 @@
 !static/css/styles.css
 !static/js/*.js
 !static/js/lot_codes.json
+
+# Allow public directory and its contents
+!public/
+!public/*
+!public/css/
+!public/js/
+!public/css/*
+!public/js/*
+!public/*.html
