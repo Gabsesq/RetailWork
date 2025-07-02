@@ -4,6 +4,7 @@
 !Procfile
 !runtime.txt
 !main.py
+!vercel.json
 !static/
 !static/*
 !static/css/
