@@ -7,14 +7,86 @@
     <link rel="stylesheet" href="/css/styles.css">
     <style>
         @media print {
-            .button-container {
+            .button-container, .scan-section {
                 display: none;
             }
+        }
+        .scan-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .scan-input {
+            margin: 10px 0;
+        }
+        .scan-input input {
+            padding: 8px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        .scan-button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .scan-button:hover {
+            background-color: #45a049;
+        }
+        .scan-history {
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: white;
+        }
+        .scan-item {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .scan-item:last-child {
+            border-bottom: none;
+        }
+        .status-message {
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 3px;
+        }
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
         }
     </style>
 </head>
 <body>
     <h1 class="header">WAREHOUSE PICKLIST / PALLET CONFIRMATION</h1>
+    
+    <!-- Scan Section -->
+    <div class="scan-section">
+        <h3>Scan SKU</h3>
+        <div class="scan-input">
+            <input type="text" id="skuInput" placeholder="Scan or enter SKU" />
+            <button class="scan-button" onclick="scanSKU()">Scan</button>
+        </div>
+        <div id="statusMessage"></div>
+        <div class="scan-history">
+            <h4>Scan History for SO/PO: <span id="currentSO"></span></h4>
+            <div id="scanHistory"></div>
+        </div>
+    </div>
+
     <div class="order-info">
         <div class="info-row">
             <div class="info-item">
@@ -27,7 +99,7 @@
             </div>
             <div class="info-item">
                 <span class="label">PO/SO#:</span>
-                <span contenteditable="true" class="so-number-box"></span>
+                <span contenteditable="true" class="so-number-box" onblur="updateCurrentSO()"></span>
             </div>
         </div>
     </div>
@@ -71,5 +143,120 @@
         <button id="printButton" class="action-button">Print</button>
         <button id="clearButton" class="action-button">Clear</button>
     </div>
+
+    <script>
+        // Scan functionality
+        function updateCurrentSO() {
+            const soElement = document.querySelector('.so-number-box');
+            const currentSO = soElement.textContent.trim();
+            document.getElementById('currentSO').textContent = currentSO || 'Not set';
+            
+            if (currentSO) {
+                loadScanHistory(currentSO);
+            }
+        }
+
+        function scanSKU() {
+            const skuInput = document.getElementById('skuInput');
+            const sku = skuInput.value.trim();
+            const soElement = document.querySelector('.so-number-box');
+            const soNumber = soElement.textContent.trim();
+            
+            if (!sku) {
+                showStatus('Please enter a SKU', 'error');
+                return;
+            }
+            
+            if (!soNumber) {
+                showStatus('Please enter a SO/PO number first', 'error');
+                return;
+            }
+            
+            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+            
+            // Save scan to database
+            fetch('/api/save-scan', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    soNumber: soNumber,
+                    sku: sku,
+                    date: today
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showStatus(`Scan saved: ${sku}`, 'success');
+                    skuInput.value = '';
+                    loadScanHistory(soNumber);
+                } else {
+                    showStatus('Error saving scan: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                showStatus('Error saving scan: ' + error.message, 'error');
+            });
+        }
+
+        function loadScanHistory(soNumber) {
+            fetch(`/api/get-scans?soNumber=${encodeURIComponent(soNumber)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayScanHistory(data.scans);
+                } else {
+                    showStatus('Error loading scan history: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                showStatus('Error loading scan history: ' + error.message, 'error');
+            });
+        }
+
+        function displayScanHistory(scans) {
+            const historyDiv = document.getElementById('scanHistory');
+            
+            if (scans.length === 0) {
+                historyDiv.innerHTML = '<p>No scans recorded yet.</p>';
+                return;
+            }
+            
+            const historyHTML = scans.map(scan => 
+                `<div class="scan-item">
+                    <strong>${scan.sku}</strong> - ${scan.date}
+                    <small>(${new Date(scan.timestamp).toLocaleTimeString()})</small>
+                </div>`
+            ).join('');
+            
+            historyDiv.innerHTML = historyHTML;
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message status-${type}`;
+            
+            // Clear status after 3 seconds
+            setTimeout(() => {
+                statusDiv.textContent = '';
+                statusDiv.className = '';
+            }, 3000);
+        }
+
+        // Handle Enter key in SKU input
+        document.getElementById('skuInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                scanSKU();
+            }
+        });
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCurrentSO();
+        });
+    </script>
 </body>
 </html> 
