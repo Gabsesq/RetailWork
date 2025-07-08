@@ -1,5 +1,6 @@
 # Ignore everything except what we need
 *
+.env
 !requirements.txt
 !Procfile
 !runtime.txt
