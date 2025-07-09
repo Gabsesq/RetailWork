@@ -24,3 +24,5 @@
 !public/*.html
 .vercel
 .env*.local
+!api/
+!api/*
