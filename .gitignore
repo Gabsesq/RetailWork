@@ -24,5 +24,12 @@
 !public/*.html
 .vercel
 .env*.local
+
+# Node.js API and dependencies
+!package.json
+!package-lock.json
 !api/
 !api/*
+
+# Always ignore node_modules
+node_modules/
