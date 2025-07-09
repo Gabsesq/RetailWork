@@ -12,6 +12,7 @@
 !static/css/styles.css
 !static/js/*.js
 !static/js/lot_codes.json
+!static/lots.html
 
 # Allow public directory and its contents
 !public/
@@ -21,3 +22,5 @@
 !public/css/*
 !public/js/*
 !public/*.html
+.vercel
+.env*.local

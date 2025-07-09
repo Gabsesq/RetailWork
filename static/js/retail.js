@@ -256,7 +256,7 @@ function handleLotSelection(event) {
 }
 
 // Add print functionality
-document.getElementById('printButton').addEventListener('click', function() {
+document.getElementById('printButton').addEventListener('click', async function() {
     const soNumberBox = document.querySelector('.so-number-box');
     const soNumber = soNumberBox.textContent.trim();
     
@@ -268,7 +268,16 @@ document.getElementById('printButton').addEventListener('click', function() {
     }
     
     soNumberBox.classList.remove('required');
-    window.print();
+    
+    // Capture and store data before printing
+    try {
+        await captureAndStoreLotsData(soNumber, 'retail');
+        window.print();
+    } catch (error) {
+        console.error('Error storing lots data:', error);
+        // Still print even if storage fails
+        window.print();
+    }
 });
 
 // Add clear functionality
@@ -282,4 +291,63 @@ document.getElementById('clearButton').addEventListener('click', function() {
         tbody.innerHTML = '';
         renderTable();
     }
-}); 
+});
+
+// Function to capture and store lots data
+async function captureAndStoreLotsData(soNumber, template) {
+    const tbody = document.getElementById('excel-table');
+    const rows = tbody.getElementsByTagName('tr');
+    const entries = [];
+    
+    // Collect data from all rows with SKU data
+    Array.from(rows).forEach(row => {
+        const skuCell = row.children[0];
+        const lotCell = row.children[1];
+        const bbCell = row.children[2];
+        const umCell = row.children[3];
+        const countCell = row.children[4];
+        
+        const sku = skuCell.textContent.trim();
+        if (sku) {
+            let lotCode = '';
+            if (lotCell.querySelector('select')) {
+                lotCode = lotCell.querySelector('select').value;
+            } else {
+                lotCode = lotCell.textContent.trim();
+            }
+            
+            const unit = umCell.textContent.trim();
+            const quantity = countCell.textContent.trim();
+            
+            entries.push({
+                soNumber,
+                sku,
+                lotCode,
+                quantity,
+                unit,
+                template
+            });
+        }
+    });
+    
+    // Store each entry in the database
+    for (const entry of entries) {
+        try {
+            const response = await fetch('/api/lots', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(entry)
+            });
+            
+            if (!response.ok) {
+                console.error('Failed to store entry:', entry);
+            }
+        } catch (error) {
+            console.error('Error storing entry:', error);
+        }
+    }
+    
+    console.log(`Stored ${entries.length} entries for SO/PO: ${soNumber}`);
+} 

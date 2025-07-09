@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lot Codes Database</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        .lots-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .lots-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .lots-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .lots-table th,
+        .lots-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        .lots-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        
+        .lots-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        .lots-table tr:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .filter-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        
+        .filter-section input,
+        .filter-section select {
+            padding: 8px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .filter-section button {
+            padding: 8px 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .filter-section button:hover {
+            background-color: #0056b3;
+        }
+        
+        .stats-section {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #6c757d;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+            font-style: italic;
+        }
+        
+        .export-section {
+            margin-top: 20px;
+            text-align: right;
+        }
+        
+        .export-button {
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .export-button:hover {
+            background-color: #218838;
+        }
+        
+        .so-link {
+            color: #007bff;
+            text-decoration: underline;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .so-link:hover {
+            color: #0056b3;
+        }
+        
+        .back-button {
+            padding: 8px 16px;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        
+        .back-button:hover {
+            background-color: #5a6268;
+        }
+        
+        .detail-view {
+            display: none;
+        }
+        
+        .summary-view {
+            display: block;
+        }
+        
+        .detail-header {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .detail-header h2 {
+            margin: 0;
+            color: #333;
+        }
+        
+        .detail-header p {
+            margin: 5px 0 0 0;
+            color: #666;
+        }
+        
+        .copy-section {
+            margin: 20px 0;
+            text-align: right;
+        }
+        
+        .copy-button {
+            padding: 10px 20px;
+            background-color: #17a2b8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-size: 14px;
+        }
+        
+        .copy-button:hover {
+            background-color: #138496;
+        }
+        
+        .copy-button:first-child {
+            background-color: #28a745;
+        }
+        
+        .copy-button:first-child:hover {
+            background-color: #218838;
+        }
+        
+        .copy-success {
+            color: #28a745;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="lots-container">
+        <!-- Summary View -->
+        <div id="summaryView" class="summary-view">
+            <div class="lots-header">
+                <h1>Lot Codes Database</h1>
+                <p>View and manage stored SKU and lot code data from printed picklists</p>
+            </div>
+            
+            <div class="stats-section">
+                <div class="stat-item">
+                    <div class="stat-number" id="totalEntries">0</div>
+                    <div class="stat-label">Total Entries</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="uniqueSkus">0</div>
+                    <div class="stat-label">Unique SKUs</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="totalQuantity">0</div>
+                    <div class="stat-label">Total Quantity</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="uniqueOrders">0</div>
+                    <div class="stat-label">Unique Orders</div>
+                </div>
+            </div>
+            
+            <div class="filter-section">
+                <input type="text" id="soFilter" placeholder="Filter by SO/PO...">
+                <select id="dateFilter">
+                    <option value="">All Dates</option>
+                </select>
+                <button onclick="applyFilters()">Apply Filters</button>
+                <button onclick="clearFilters()">Clear Filters</button>
+            </div>
+            
+            <table class="lots-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>SO/PO Number</th>
+                        <th>Total Items</th>
+                        <th>Template</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="summaryTableBody">
+                    <tr>
+                        <td colspan="5" class="no-data">Loading data...</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="export-section">
+                <button class="export-button" onclick="exportData()">Export to CSV</button>
+            </div>
+        </div>
+        
+        <!-- Detail View -->
+        <div id="detailView" class="detail-view">
+            <button class="back-button" onclick="showSummaryView()">← Back to Summary</button>
+            
+            <div class="detail-header">
+                <h2 id="detailTitle">Order Details</h2>
+                <p id="detailSubtitle">SKU and lot code information</p>
+            </div>
+            
+            <div class="copy-section">
+                <button class="copy-button" onclick="copyToClipboard('regular')">📋 Regular Copy</button>
+                <button class="copy-button" onclick="copyToClipboard('multi')">📋 Multi Row Copy</button>
+                <span id="copySuccess" class="copy-success" style="display: none;">Copied!</span>
+            </div>
+            
+            <table class="lots-table">
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Lot Code</th>
+                        <th>BB Date</th>
+                        <th>Quantity</th>
+                        <th>Unit</th>
+                    </tr>
+                </thead>
+                <tbody id="detailTableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let allData = [];
+        let filteredData = [];
+        let currentSoNumber = '';
+
+        // Load data when page loads
+        window.onload = async function() {
+            await loadLotCodes();
+            loadLotsData();
+        };
+
+        // Load lot codes data
+        async function loadLotCodes() {
+            try {
+                const response = await fetch('/js/lot_codes.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                window.LOT_CODES = await response.json();
+                console.log("Successfully loaded lot codes:", Object.keys(window.LOT_CODES).length);
+                return true;
+            } catch (error) {
+                console.error("Error loading lot codes:", error);
+                return false;
+            }
+        }
+
+        async function loadLotsData() {
+            try {
+                const response = await fetch('/api/lots');
+                const data = await response.json();
+                
+                if (data.success) {
+                    allData = data.lots || [];
+                    filteredData = [...allData];
+                    displaySummaryData();
+                    updateStats();
+                    populateDateFilter();
+                } else {
+                    console.error('Error loading data:', data.error);
+                    document.getElementById('summaryTableBody').innerHTML = 
+                        '<tr><td colspan="5" class="no-data">Error loading data</td></tr>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('summaryTableBody').innerHTML = 
+                    '<tr><td colspan="5" class="no-data">Error loading data</td></tr>';
+            }
+        }
+
+        function displaySummaryData() {
+            const tbody = document.getElementById('summaryTableBody');
+            
+            if (filteredData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="no-data">No data found</td></tr>';
+                return;
+            }
+            
+            // Group data by SO/PO number
+            const groupedData = {};
+            filteredData.forEach(entry => {
+                const soNumber = entry.soNumber || 'Unknown';
+                if (!groupedData[soNumber]) {
+                    groupedData[soNumber] = {
+                        soNumber: soNumber,
+                        date: entry.timestamp,
+                        items: [],
+                        template: entry.template
+                    };
+                }
+                groupedData[soNumber].items.push(entry);
+            });
+            
+            // Convert to array and sort by date
+            const summaryRows = Object.values(groupedData)
+                .sort((a, b) => new Date(b.date) - new Date(a.date))
+                .map(group => {
+                    const totalItems = group.items.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
+                    return `
+                        <tr>
+                            <td>${new Date(group.date).toLocaleDateString()}</td>
+                            <td><span class="so-link" onclick="showDetailView('${group.soNumber}')">${group.soNumber}</span></td>
+                            <td>${totalItems}</td>
+                            <td>${group.template || 'N/A'}</td>
+                            <td>
+                                <button onclick="showDetailView('${group.soNumber}')" style="padding: 4px 8px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;">View Details</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            
+            tbody.innerHTML = summaryRows;
+        }
+
+        function showDetailView(soNumber) {
+            currentSoNumber = soNumber;
+            
+            // Filter data for this SO/PO
+            const orderData = allData.filter(entry => entry.soNumber === soNumber);
+            
+            if (orderData.length === 0) {
+                alert('No data found for this order');
+                return;
+            }
+            
+            // Update detail view header
+            document.getElementById('detailTitle').textContent = `Order Details - ${soNumber}`;
+            document.getElementById('detailSubtitle').textContent = 
+                `${orderData.length} items • ${new Date(orderData[0].timestamp).toLocaleDateString()} • ${orderData[0].template || 'Unknown'} template`;
+            
+            // Display detail data
+            const tbody = document.getElementById('detailTableBody');
+            const detailRows = orderData.map(entry => {
+                // Calculate BB date (you may need to adjust this based on your lot codes data)
+                const bbDate = getBBDate(entry.sku, entry.lotCode);
+                
+                return `
+                    <tr>
+                        <td>${entry.sku || 'N/A'}</td>
+                        <td>${entry.lotCode || 'N/A'}</td>
+                        <td>${bbDate || 'N/A'}</td>
+                        <td>${entry.quantity || 'N/A'}</td>
+                        <td>${entry.unit || 'N/A'}</td>
+                    </tr>
+                `;
+            }).join('');
+            
+            tbody.innerHTML = detailRows;
+            
+            // Switch views
+            document.getElementById('summaryView').style.display = 'none';
+            document.getElementById('detailView').style.display = 'block';
+        }
+
+        function showSummaryView() {
+            document.getElementById('detailView').style.display = 'none';
+            document.getElementById('summaryView').style.display = 'block';
+            currentSoNumber = '';
+        }
+
+        function getBBDate(sku, lotCode) {
+            // This function should look up the BB date from your lot codes data
+            // For now, returning a placeholder - you'll need to integrate with your existing lot codes
+            if (window.LOT_CODES && sku && lotCode) {
+                const normalizedSku = sku.toUpperCase().replace(/\s+/g, '');
+                const matchingSku = Object.keys(window.LOT_CODES).find(key => 
+                    key.toUpperCase().replace(/\s+/g, '') === normalizedSku
+                );
+                
+                if (matchingSku && window.LOT_CODES[matchingSku] && window.LOT_CODES[matchingSku][lotCode]) {
+                    return window.LOT_CODES[matchingSku][lotCode];
+                }
+            }
+            return null;
+        }
+
+        function updateStats() {
+            const totalEntries = filteredData.length;
+            const uniqueSkus = new Set(filteredData.map(entry => entry.sku)).size;
+            const totalQuantity = filteredData.reduce((sum, entry) => sum + (parseInt(entry.quantity) || 0), 0);
+            const uniqueOrders = new Set(filteredData.map(entry => entry.soNumber)).size;
+            
+            document.getElementById('totalEntries').textContent = totalEntries;
+            document.getElementById('uniqueSkus').textContent = uniqueSkus;
+            document.getElementById('totalQuantity').textContent = totalQuantity;
+            document.getElementById('uniqueOrders').textContent = uniqueOrders;
+        }
+
+        function populateDateFilter() {
+            const dates = [...new Set(allData.map(entry => 
+                new Date(entry.timestamp).toLocaleDateString()
+            ))].sort().reverse();
+            
+            const dateFilter = document.getElementById('dateFilter');
+            dateFilter.innerHTML = '<option value="">All Dates</option>';
+            
+            dates.forEach(date => {
+                const option = document.createElement('option');
+                option.value = date;
+                option.textContent = date;
+                dateFilter.appendChild(option);
+            });
+        }
+
+        function applyFilters() {
+            const soFilter = document.getElementById('soFilter').value.toLowerCase();
+            const dateFilter = document.getElementById('dateFilter').value;
+            
+            filteredData = allData.filter(entry => {
+                const matchesSo = !soFilter || (entry.soNumber && entry.soNumber.toLowerCase().includes(soFilter));
+                const matchesDate = !dateFilter || new Date(entry.timestamp).toLocaleDateString() === dateFilter;
+                
+                return matchesSo && matchesDate;
+            });
+            
+            displaySummaryData();
+            updateStats();
+        }
+
+        function clearFilters() {
+            document.getElementById('soFilter').value = '';
+            document.getElementById('dateFilter').value = '';
+            
+            filteredData = [...allData];
+            displaySummaryData();
+            updateStats();
+        }
+
+        function exportData() {
+            if (filteredData.length === 0) {
+                alert('No data to export');
+                return;
+            }
+            
+            const headers = ['Date', 'SO/PO Number', 'SKU', 'Lot Code', 'BB Date', 'Quantity', 'Unit', 'Template'];
+            const csvContent = [
+                headers.join(','),
+                ...filteredData.map(entry => [
+                    new Date(entry.timestamp).toLocaleDateString(),
+                    entry.soNumber || '',
+                    entry.sku || '',
+                    entry.lotCode || '',
+                    getBBDate(entry.sku, entry.lotCode) || '',
+                    entry.quantity || '',
+                    entry.unit || '',
+                    entry.template || ''
+                ].join(','))
+            ].join('\n');
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `lots_data_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Add event listeners for real-time filtering
+        document.getElementById('soFilter').addEventListener('input', applyFilters);
+        document.getElementById('dateFilter').addEventListener('change', applyFilters);
+
+        // Function to copy data to clipboard in Excel-friendly format
+        function copyToClipboard(mode = 'regular') {
+            const orderData = allData.filter(entry => entry.soNumber === currentSoNumber);
+            
+            if (orderData.length === 0) {
+                alert('No data to copy');
+                return;
+            }
+            
+            let rows = [];
+            
+            if (mode === 'regular') {
+                // Regular copy: one row per entry
+                rows = orderData.map(entry => {
+                    const bbDate = getBBDate(entry.sku, entry.lotCode);
+                    return `${entry.lotCode || ''}\t${bbDate || ''}`;
+                });
+            } else if (mode === 'multi') {
+                // Multi row copy: repeat rows based on quantity
+                orderData.forEach(entry => {
+                    const bbDate = getBBDate(entry.sku, entry.lotCode);
+                    const quantity = parseInt(entry.quantity) || 1;
+                    
+                    // Repeat this row based on quantity
+                    for (let i = 0; i < quantity; i++) {
+                        rows.push(`${entry.lotCode || ''}\t${bbDate || ''}`);
+                    }
+                });
+            }
+            
+            const clipboardText = rows.join('\n');
+            
+            // Copy to clipboard
+            navigator.clipboard.writeText(clipboardText).then(() => {
+                // Show success message
+                const successElement = document.getElementById('copySuccess');
+                successElement.style.display = 'inline';
+                setTimeout(() => {
+                    successElement.style.display = 'none';
+                }, 2000);
+                
+                console.log(`Copied to clipboard (${mode} mode):`, clipboardText);
+                console.log(`Total rows copied: ${rows.length}`);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                alert('Failed to copy to clipboard. Please try again.');
+            });
+        }
+    </script>
+</body>
+</html> 
