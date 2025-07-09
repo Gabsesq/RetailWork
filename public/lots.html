@@ -313,7 +313,6 @@
                     allData = data.lots || [];
                     filteredData = [...allData];
                     displaySummaryData();
-                    updateStats();
                     populateDateFilter();
                 } else {
                     console.error('Error loading data:', data.error);
@@ -433,18 +432,6 @@
             return null;
         }
 
-        function updateStats() {
-            const totalEntries = filteredData.length;
-            const uniqueSkus = new Set(filteredData.map(entry => entry.sku)).size;
-            const totalQuantity = filteredData.reduce((sum, entry) => sum + (parseInt(entry.quantity) || 0), 0);
-            const uniqueOrders = new Set(filteredData.map(entry => entry.soNumber)).size;
-            
-            document.getElementById('totalEntries').textContent = totalEntries;
-            document.getElementById('uniqueSkus').textContent = uniqueSkus;
-            document.getElementById('totalQuantity').textContent = totalQuantity;
-            document.getElementById('uniqueOrders').textContent = uniqueOrders;
-        }
-
         function populateDateFilter() {
             const dates = [...new Set(allData.map(entry => 
                 new Date(entry.timestamp).toLocaleDateString()
@@ -473,7 +460,6 @@
             });
             
             displaySummaryData();
-            updateStats();
         }
 
         function clearFilters() {
@@ -482,7 +468,6 @@
             
             filteredData = [...allData];
             displaySummaryData();
-            updateStats();
         }
 
         function exportData() {
