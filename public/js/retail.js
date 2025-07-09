@@ -256,18 +256,40 @@ function handleLotSelection(event) {
 }
 
 // Add print functionality
-document.getElementById('printButton').addEventListener('click', function() {
+document.getElementById('printButton').addEventListener('click', async function() {
     const soNumberBox = document.querySelector('.so-number-box');
     const soNumber = soNumberBox.textContent.trim();
-    
     if (!soNumber) {
         soNumberBox.classList.add('required');
         alert('Please enter a PO/SO number before printing');
         soNumberBox.focus();
         return;
     }
-    
     soNumberBox.classList.remove('required');
+
+    // Gather table data
+    const rows = document.querySelectorAll('#excel-table tr');
+    for (const row of rows) {
+        const cells = row.children;
+        const sku = cells[0]?.textContent.trim();
+        const lotCode = cells[1]?.textContent.trim();
+        const quantity = cells[4]?.textContent.trim() || cells[3]?.textContent.trim();
+        const unit = cells[3]?.textContent.trim() || cells[2]?.textContent.trim();
+        if (sku && lotCode) {
+            await fetch('/api/lots', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    soNumber,
+                    sku,
+                    lotCode,
+                    quantity,
+                    unit,
+                    template: 'retail'
+                })
+            });
+        }
+    }
     window.print();
 });
 
