@@ -33,3 +33,6 @@
 
 # Always ignore node_modules
 node_modules/
+
+# Allow Vercel trigger file
+!vercel_trigger.txt
