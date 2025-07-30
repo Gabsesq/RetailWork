@@ -5,6 +5,7 @@
 !Procfile
 !runtime.txt
 !main.py
+!excel_to_json.py
 !static/
 !static/*
 !static/css/

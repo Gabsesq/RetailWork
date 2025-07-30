@@ -115,8 +115,10 @@ window.updateLotOptions = function(select, sku) {
     
     if (matchingSku && window.LOT_CODES[matchingSku]) {
         const sortedLots = Object.keys(window.LOT_CODES[matchingSku]).sort();
-        console.log("Available lots:", sortedLots);
+        console.log("Available lots with BB dates:");
         sortedLots.forEach(lot => {
+            const bbDate = window.LOT_CODES[matchingSku][lot].bb_date;
+            console.log(`  ${lot}: ${bbDate}`);
             select.appendChild(new Option(lot, lot));
         });
     }
