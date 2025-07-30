@@ -418,7 +418,6 @@
 
         function getBBDate(sku, lotCode) {
             // This function should look up the BB date from your lot codes data
-            // For now, returning a placeholder - you'll need to integrate with your existing lot codes
             if (window.LOT_CODES && sku && lotCode) {
                 const normalizedSku = sku.toUpperCase().replace(/\s+/g, '');
                 const matchingSku = Object.keys(window.LOT_CODES).find(key => 
@@ -426,7 +425,7 @@
                 );
                 
                 if (matchingSku && window.LOT_CODES[matchingSku] && window.LOT_CODES[matchingSku][lotCode]) {
-                    return window.LOT_CODES[matchingSku][lotCode];
+                    return window.LOT_CODES[matchingSku][lotCode].bb_date;
                 }
             }
             return null;

@@ -249,7 +249,7 @@ function handleLotSelection(event) {
     );
     
     if (selectedLot && matchingSku && LOT_CODES[matchingSku] && LOT_CODES[matchingSku][selectedLot]) {
-        bbCell.textContent = LOT_CODES[matchingSku][selectedLot];
+        bbCell.textContent = LOT_CODES[matchingSku][selectedLot].bb_date;
     } else {
         bbCell.textContent = "";
     }
