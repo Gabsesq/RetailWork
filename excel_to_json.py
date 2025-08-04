@@ -137,7 +137,7 @@ def compare_and_print_new_lots(existing_data, new_data):
 
 
 def convert_excel_to_json():
-    excel_path = "LotCode.xlsx"  # Use local file for testing
+    excel_path = r"C:\Users\GabbyEsquibel\Pet Releaf\Warehouse - Documents\Current Lot Code Data.xlsx"  # Use local file for testing
     wb = load_workbook(excel_path)
     ws = wb.active
 
