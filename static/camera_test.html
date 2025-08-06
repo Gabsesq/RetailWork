@@ -3,13 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Retail Picklist</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <title>Camera Test</title>
     <style>
-        @media print {
-            .button-container, .camera-section {
-                display: none;
-            }
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
         }
 
         .camera-section {
@@ -23,18 +37,19 @@
         .camera-controls {
             display: flex;
             gap: 10px;
-            margin: 10px 0;
+            margin: 15px 0;
             flex-wrap: wrap;
         }
 
         .camera-button {
-            padding: 10px 20px;
+            padding: 12px 24px;
             background-color: #2196F3;
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 16px;
+            font-weight: bold;
         }
 
         .camera-button:hover {
@@ -54,13 +69,22 @@
             background-color: #d32f2f;
         }
 
+        .camera-button.success {
+            background-color: #4CAF50;
+        }
+
+        .camera-button.success:hover {
+            background-color: #45a049;
+        }
+
         #camera {
             width: 100%;
-            max-width: 400px;
-            height: 300px;
+            max-width: 500px;
+            height: 375px;
             background-color: #000;
             border-radius: 8px;
-            margin: 10px 0;
+            margin: 15px 0;
+            display: block;
         }
 
         #canvas {
@@ -70,60 +94,85 @@
         .captured-images {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
-            margin: 15px 0;
+            gap: 15px;
+            margin: 20px 0;
         }
 
         .captured-image {
             position: relative;
-            border: 2px solid #ddd;
+            border: 3px solid #ddd;
             border-radius: 8px;
             overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
 
         .captured-image img {
-            width: 150px;
+            width: 200px;
             height: 150px;
             object-fit: cover;
         }
 
         .remove-image {
             position: absolute;
-            top: 5px;
-            right: 5px;
-            background-color: rgba(255, 0, 0, 0.8);
+            top: 8px;
+            right: 8px;
+            background-color: rgba(255, 0, 0, 0.9);
             color: white;
             border: none;
             border-radius: 50%;
-            width: 25px;
-            height: 25px;
+            width: 30px;
+            height: 30px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 16px;
+            font-weight: bold;
         }
 
         .camera-status {
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
             font-weight: bold;
+            text-align: center;
         }
 
         .camera-status.success {
             background-color: #d4edda;
             color: #155724;
-            border: 1px solid #c3e6cb;
+            border: 2px solid #c3e6cb;
         }
 
         .camera-status.error {
             background-color: #f8d7da;
             color: #721c24;
-            border: 1px solid #f5c6cb;
+            border: 2px solid #f5c6cb;
         }
 
         .camera-status.info {
             background-color: #d1ecf1;
             color: #0c5460;
-            border: 1px solid #bee5eb;
+            border: 2px solid #bee5eb;
+        }
+
+        .info-box {
+            background-color: #e3f2fd;
+            border: 1px solid #2196F3;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        .info-box h3 {
+            margin-top: 0;
+            color: #1976D2;
+        }
+
+        .info-box ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .info-box li {
+            margin: 5px 0;
         }
 
         @media (max-width: 768px) {
@@ -136,77 +185,56 @@
             }
             
             #camera {
-                height: 250px;
+                height: 300px;
             }
         }
     </style>
 </head>
 <body>
-    <h1 class="header">RETAIL PICKLIST / PALLET CONFIRMATION</h1>
-    
-    <!-- Camera Section -->
-    <div class="camera-section">
-        <h3>📸 Document Photos</h3>
-        <div id="cameraStatus" class="camera-status info">
-            Click "Start Camera" to begin taking photos
-        </div>
+    <div class="container">
+        <h1>📸 Camera Functionality Test</h1>
         
-        <div class="camera-controls">
-            <button id="startCameraBtn" class="camera-button">📷 Start Camera</button>
-            <button id="captureBtn" class="camera-button" disabled>📸 Take Photo</button>
-            <button id="stopCameraBtn" class="camera-button danger" disabled>⏹️ Stop Camera</button>
+        <div class="info-box">
+            <h3>How to Test:</h3>
+            <ul>
+                <li><strong>Desktop:</strong> Use your webcam or external camera</li>
+                <li><strong>Mobile:</strong> Use your phone's camera (preferably back camera)</li>
+                <li><strong>Permission:</strong> Allow camera access when prompted</li>
+                <li><strong>HTTPS:</strong> Camera works best over HTTPS (required for production)</li>
+            </ul>
         </div>
-        
-        <video id="camera" autoplay muted></video>
-        <canvas id="canvas"></canvas>
-        
-        <div class="captured-images" id="capturedImages">
-            <!-- Captured images will appear here -->
-        </div>
-    </div>
 
-    <div class="order-info">
-        <div class="info-row">
-            <div class="info-item">
-                <span class="label">Processed By:</span>
-                <span contenteditable="true" class="input-field"></span>
+        <div class="camera-section">
+            <h3>📷 Camera Controls</h3>
+            <div id="cameraStatus" class="camera-status info">
+                Click "Start Camera" to begin testing
             </div>
-            <div class="info-item">
-                <span class="label">Order Type:</span>
-                <span contenteditable="true" class="input-field"></span>
+            
+            <div class="camera-controls">
+                <button id="startCameraBtn" class="camera-button">📷 Start Camera</button>
+                <button id="captureBtn" class="camera-button" disabled>📸 Take Photo</button>
+                <button id="stopCameraBtn" class="camera-button danger" disabled>⏹️ Stop Camera</button>
+                <button id="clearPhotosBtn" class="camera-button success" disabled>🗑️ Clear All Photos</button>
             </div>
-            <div class="info-item">
-                <span class="label">PO/SO#:</span>
-                <span contenteditable="true" class="so-number-box"></span>
+            
+            <video id="camera" autoplay muted></video>
+            <canvas id="canvas"></canvas>
+            
+            <h4>📸 Captured Photos:</h4>
+            <div class="captured-images" id="capturedImages">
+                <!-- Captured images will appear here -->
             </div>
         </div>
-    </div>
 
-    <table>
-        <thead>
-            <tr>
-                <th>SKU</th>
-                <th>LOT</th>
-                <th>B/B</th>
-                <th>U/M</th>
-                <th>COUNT</th>
-            </tr>
-        </thead>
-        <tbody id="excel-table">
-        </tbody>
-    </table>
-
-    <div class="signature-line">
-        <div class="signature-container">
-            <div class="line"></div>
-            <span class="signature-label">Signature</span>
+        <div class="info-box">
+            <h3>✅ Test Results:</h3>
+            <ul>
+                <li><strong>Camera Access:</strong> <span id="cameraAccess">Not tested</span></li>
+                <li><strong>Photo Capture:</strong> <span id="photoCapture">Not tested</span></li>
+                <li><strong>Image Quality:</strong> <span id="imageQuality">Not tested</span></li>
+                <li><strong>Mobile Compatibility:</strong> <span id="mobileCompat">Not tested</span></li>
+            </ul>
         </div>
-    </div>
-
-    <div class="button-container">
-        <button id="printButton" class="action-button">Print</button>
-        <button id="clearButton" class="action-button">Clear</button>
-        <button id="emailButton" class="action-button">📧 Email with Photos</button>
     </div>
 
     <script>
@@ -217,6 +245,7 @@
         async function startCamera() {
             try {
                 updateStatus('Starting camera...', 'info');
+                updateTestResult('cameraAccess', 'Testing...');
                 
                 // Try to use back camera on mobile devices
                 const constraints = {
@@ -232,6 +261,9 @@
                 video.srcObject = stream;
                 
                 updateStatus('Camera started successfully! Click "Take Photo" to capture images.', 'success');
+                updateTestResult('cameraAccess', '✅ Working');
+                updateTestResult('mobileCompat', navigator.userAgent.includes('Mobile') ? '✅ Mobile detected' : '✅ Desktop detected');
+                
                 document.getElementById('startCameraBtn').disabled = true;
                 document.getElementById('captureBtn').disabled = false;
                 document.getElementById('stopCameraBtn').disabled = false;
@@ -239,6 +271,7 @@
             } catch (err) {
                 console.error('Camera error:', err);
                 updateStatus('Camera access denied. Please allow camera permissions and try again.', 'error');
+                updateTestResult('cameraAccess', '❌ Failed - ' + err.message);
             }
         }
 
@@ -279,6 +312,10 @@
             displayCapturedImage(imageData, capturedImages.length - 1);
             
             updateStatus(`Photo captured! (${capturedImages.length} total)`, 'success');
+            updateTestResult('photoCapture', `✅ ${capturedImages.length} photos taken`);
+            updateTestResult('imageQuality', `✅ ${canvas.width}x${canvas.height} resolution`);
+            
+            document.getElementById('clearPhotosBtn').disabled = false;
         }
 
         function displayCapturedImage(imageData, index) {
@@ -305,6 +342,19 @@
             capturedImages.splice(index, 1);
             refreshCapturedImages();
             updateStatus(`Photo removed. (${capturedImages.length} remaining)`, 'info');
+            updateTestResult('photoCapture', capturedImages.length > 0 ? `✅ ${capturedImages.length} photos remaining` : 'Not tested');
+            
+            if (capturedImages.length === 0) {
+                document.getElementById('clearPhotosBtn').disabled = true;
+            }
+        }
+
+        function clearAllPhotos() {
+            capturedImages = [];
+            document.getElementById('capturedImages').innerHTML = '';
+            updateStatus('All photos cleared.', 'info');
+            updateTestResult('photoCapture', 'Not tested');
+            document.getElementById('clearPhotosBtn').disabled = true;
         }
 
         function refreshCapturedImages() {
@@ -322,43 +372,18 @@
             statusDiv.className = `camera-status ${type}`;
         }
 
-        function collectTemplateData() {
-            // Collect all the form data
-            const data = {
-                processedBy: document.querySelector('.info-item .input-field').textContent,
-                orderType: document.querySelectorAll('.info-item .input-field')[1].textContent,
-                poSo: document.querySelector('.so-number-box').textContent,
-                // Add more fields as needed
-                timestamp: new Date().toISOString()
-            };
-            return data;
-        }
-
-        function sendEmailWithPhotos() {
-            const templateData = collectTemplateData();
-            
-            if (capturedImages.length === 0) {
-                updateStatus('No photos captured. Please take at least one photo before sending.', 'error');
-                return;
+        function updateTestResult(elementId, result) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = result;
             }
-            
-            updateStatus('Preparing email...', 'info');
-            
-            // For now, just show what would be sent
-            console.log('Template Data:', templateData);
-            console.log('Number of photos:', capturedImages.length);
-            
-            // In a real implementation, you would send this to your backend
-            alert(`Email prepared with:\n- Template data\n- ${capturedImages.length} photos\n\nThis would be sent to your email system.`);
-            
-            updateStatus('Email prepared successfully!', 'success');
         }
 
         // Event listeners
         document.getElementById('startCameraBtn').addEventListener('click', startCamera);
         document.getElementById('stopCameraBtn').addEventListener('click', stopCamera);
         document.getElementById('captureBtn').addEventListener('click', captureImage);
-        document.getElementById('emailButton').addEventListener('click', sendEmailWithPhotos);
+        document.getElementById('clearPhotosBtn').addEventListener('click', clearAllPhotos);
 
         // Clean up camera when page is unloaded
         window.addEventListener('beforeunload', () => {
@@ -366,6 +391,11 @@
                 stopCamera();
             }
         });
+
+        // Check if we're on HTTPS
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+            updateStatus('⚠️ Camera requires HTTPS for security. Some features may not work.', 'error');
+        }
     </script>
 </body>
 </html> 
