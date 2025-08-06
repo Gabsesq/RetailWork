@@ -185,6 +185,18 @@
                     templateScript.onload = resolve;
                 });
 
+                // Load camera script for warehouse template
+                if (isWarehouse) {
+                    const cameraScript = document.createElement('script');
+                    cameraScript.src = '/js/camera.js';
+                    document.body.appendChild(cameraScript);
+                    
+                    // Wait for camera script to load
+                    await new Promise((resolve) => {
+                        cameraScript.onload = resolve;
+                    });
+                }
+
                 // Initialize the template after scripts are loaded
                 if (window.renderTable) {
                     window.renderTable();

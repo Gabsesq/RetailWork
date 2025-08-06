@@ -7,8 +7,199 @@
     <link rel="stylesheet" href="/css/styles.css">
     <style>
         @media print {
-            .button-container {
+            .button-container, .camera-section {
                 display: none;
+            }
+        }
+
+        .camera-section {
+            margin: 30px 0;
+            padding: 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .camera-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .camera-section h3 {
+            margin: 0 0 20px 0;
+            font-size: 24px;
+            font-weight: 600;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            position: relative;
+            z-index: 1;
+        }
+
+        .camera-controls {
+            display: flex;
+            gap: 12px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+            position: relative;
+            z-index: 1;
+        }
+
+        .camera-button {
+            padding: 12px 24px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .camera-button:hover {
+            background: rgba(255,255,255,0.3);
+            border-color: rgba(255,255,255,0.5);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+
+        .camera-button:disabled {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.1);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .camera-button.danger {
+            background: rgba(244, 67, 54, 0.8);
+            border-color: rgba(244, 67, 54, 0.6);
+        }
+
+        .camera-button.danger:hover {
+            background: rgba(244, 67, 54, 0.9);
+            border-color: rgba(244, 67, 54, 0.8);
+        }
+
+        #camera {
+            width: 100%;
+            max-width: 500px;
+            height: 350px;
+            background: linear-gradient(45deg, #1a1a1a, #2d2d2d);
+            border-radius: 16px;
+            margin: 20px 0;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            border: 3px solid rgba(255,255,255,0.2);
+            position: relative;
+            z-index: 1;
+        }
+
+        #canvas {
+            display: none;
+        }
+
+        .captured-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 20px 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .captured-image {
+            position: relative;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .captured-image:hover {
+            transform: scale(1.05);
+        }
+
+        .captured-image img {
+            width: 160px;
+            height: 160px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .remove-image {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(244, 67, 54, 0.9);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+        }
+
+        .remove-image:hover {
+            background: rgba(244, 67, 54, 1);
+            transform: scale(1.1);
+        }
+
+        .camera-status {
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 12px;
+            font-weight: 600;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            position: relative;
+            z-index: 1;
+        }
+
+        .camera-status.success {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4caf50;
+            border-color: rgba(76, 175, 80, 0.4);
+        }
+
+        .camera-status.error {
+            background: rgba(244, 67, 54, 0.2);
+            color: #f44336;
+            border-color: rgba(244, 67, 54, 0.4);
+        }
+
+        .camera-status.info {
+            background: rgba(33, 150, 243, 0.2);
+            color: #2196f3;
+            border-color: rgba(33, 150, 243, 0.4);
+        }
+
+        @media (max-width: 768px) {
+            .camera-controls {
+                flex-direction: column;
+            }
+            
+            .camera-button {
+                width: 100%;
+            }
+            
+            #camera {
+                height: 250px;
             }
         }
     </style>
@@ -67,9 +258,31 @@
         </div>
     </div>
 
+    <!-- Camera Section -->
+    <div class="camera-section">
+        <h3>📸 Document Photos</h3>
+        <div id="cameraStatus" class="camera-status info">
+            Starting camera...
+        </div>
+        
+        <div class="camera-controls">
+            <button id="captureBtn" class="camera-button" disabled>📸 Take Photo</button>
+        </div>
+        
+        <video id="camera" autoplay muted></video>
+        <canvas id="canvas"></canvas>
+        
+        <div class="captured-images" id="capturedImages">
+            <!-- Captured images will appear here -->
+        </div>
+    </div>
+
     <div class="button-container">
         <button id="printButton" class="action-button">Print</button>
         <button id="clearButton" class="action-button">Clear</button>
+        <button id="emailButton" class="action-button">📧 Email with Photos</button>
     </div>
+
+    <script src="/js/camera.js"></script>
 </body>
 </html> 
