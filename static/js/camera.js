@@ -105,6 +105,52 @@ function collectTemplateData() {
     return data;
 }
 
+async function captureTemplateScreenshot() {
+    try {
+        // Try to find the main template content area
+        const templateElement = document.querySelector('.picklist-container') || 
+                               document.querySelector('.template-container') || 
+                               document.querySelector('main') || 
+                               document.body;
+        
+        // Use html2canvas if available
+        if (typeof html2canvas !== 'undefined') {
+            const screenshot = await html2canvas(templateElement, {
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                scale: 1,
+                logging: false,
+                width: templateElement.scrollWidth,
+                height: templateElement.scrollHeight
+            });
+            return screenshot.toDataURL('image/jpeg', 0.8);
+        } else {
+            // Fallback: create a simple representation
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            
+            canvas.width = 800;
+            canvas.height = 600;
+            
+            context.fillStyle = '#ffffff';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Add text representation of the template
+            context.fillStyle = '#000000';
+            context.font = '16px Arial';
+            context.fillText('Template Screenshot', 20, 30);
+            context.fillText(`PO/SO: ${templateData.poSo}`, 20, 60);
+            context.fillText(`Processed By: ${templateData.processedBy}`, 20, 90);
+            
+            return canvas.toDataURL('image/jpeg', 0.8);
+        }
+    } catch (error) {
+        console.error('Error capturing template screenshot:', error);
+        return null;
+    }
+}
+
 async function sendEmailWithPhotos() {
     const templateData = collectTemplateData();
     
@@ -113,9 +159,12 @@ async function sendEmailWithPhotos() {
         return;
     }
     
-    updateStatus('Sending email...', 'info');
+    updateStatus('Capturing template and sending email...', 'info');
     
     try {
+        // Capture template screenshot
+        const templateScreenshot = await captureTemplateScreenshot();
+        
         const response = await fetch('/api/send-email', {
             method: 'POST',
             headers: {
@@ -123,7 +172,8 @@ async function sendEmailWithPhotos() {
             },
             body: JSON.stringify({
                 templateData: templateData,
-                photos: capturedImages
+                photos: capturedImages,
+                templateScreenshot: templateScreenshot
             })
         });
         
