@@ -146,6 +146,9 @@
                 // Remove any existing scripts first
                 const oldScripts = document.querySelectorAll('script[src*="/js/"]');
                 oldScripts.forEach(script => script.remove());
+                
+                // Clean up any existing event listeners and debug panels
+                cleanupTemplate();
 
                 // Load and execute constants.js first
                 const constantsScript = document.createElement('script');
@@ -218,6 +221,30 @@
         templateToggle.addEventListener('change', (e) => {
             loadTemplate(e.target.checked);
         });
+        
+        // Cleanup function to remove event listeners and debug panels
+        function cleanupTemplate() {
+            // Remove debug panel if it exists
+            const debugPanel = document.getElementById('debug-panel');
+            if (debugPanel) {
+                debugPanel.remove();
+            }
+            
+            // Remove debug button if it exists
+            const debugBtn = document.querySelector('button[onclick*="debug"]');
+            if (debugBtn) {
+                debugBtn.remove();
+            }
+            
+            // Remove any existing table event listeners by cloning and replacing the table
+            const table = document.getElementById('excel-table');
+            if (table) {
+                const newTable = table.cloneNode(true);
+                table.parentNode.replaceChild(newTable, table);
+            }
+            
+            console.log('Template cleanup completed');
+        }
     </script>
 </body>
 </html>
