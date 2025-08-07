@@ -6,16 +6,22 @@ async function startCamera() {
     try {
         updateStatus('Starting camera...', 'info');
         
-        // Simple constraints
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Camera timeout')), 10000); // 10 second timeout
+        });
+        
+        // Even simpler constraints - just basic camera access
         const constraints = {
-            video: {
-                facingMode: 'environment',
-                width: { ideal: 640 },
-                height: { ideal: 480 }
-            }
+            video: true
         };
 
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        // Race between camera start and timeout
+        stream = await Promise.race([
+            navigator.mediaDevices.getUserMedia(constraints),
+            timeoutPromise
+        ]);
+        
         const video = document.getElementById('camera');
         video.srcObject = stream;
         
@@ -32,7 +38,20 @@ async function startCamera() {
         
     } catch (err) {
         console.error('Camera error:', err);
-        updateStatus('Camera failed to start. You can still use the scanner.', 'error');
+        if (err.message === 'Camera timeout') {
+            updateStatus('Camera took too long to start. Try again or use scanner only.', 'error');
+        } else {
+            updateStatus('Camera failed to start. You can still use the scanner.', 'error');
+        }
+        
+        // Reset button state on error
+        const startBtn = document.getElementById('startCameraBtn');
+        if (startBtn) {
+            startBtn.textContent = '📷 Start Camera';
+            startBtn.onclick = startCamera;
+            startBtn.style.background = '#007bff';
+            startBtn.disabled = false;
+        }
     }
 }
 
@@ -50,12 +69,19 @@ function stopCamera() {
     updateStatus('Camera stopped. Scanner should work normally.', 'info');
     document.getElementById('captureBtn').disabled = true;
     
-    // Change button back to start
+    // Change button back to start and make sure it's enabled
     const startBtn = document.getElementById('startCameraBtn');
     if (startBtn) {
         startBtn.textContent = '📷 Start Camera';
         startBtn.onclick = startCamera;
         startBtn.style.background = '#007bff';
+        startBtn.disabled = false; // Make sure it's not disabled
+    }
+    
+    // Make sure email button is still enabled
+    const emailBtn = document.getElementById('emailButton');
+    if (emailBtn) {
+        emailBtn.disabled = false;
     }
 }
 
@@ -160,6 +186,9 @@ async function sendEmailWithPhotos() {
             updateStatus('Email sent successfully!', 'success');
             capturedImages = [];
             refreshCapturedImages();
+            
+            // Auto-stop camera after successful email
+            autoStopCameraAfterEmail();
         } else {
             updateStatus(`Email failed: ${result.message}`, 'error');
         }
@@ -211,35 +240,10 @@ function generateTemplateData() {
     return templateData;
 }
 
-// Simple setup - no auto-start
+// Auto-start camera after print button is pressed
 function setupCamera() {
     const captureBtn = document.getElementById('captureBtn');
     if (!captureBtn) return;
-    
-    // Add start button
-    const cameraSection = document.querySelector('.camera-section');
-    if (cameraSection) {
-        const startBtn = document.createElement('button');
-        startBtn.id = 'startCameraBtn';
-        startBtn.textContent = '📷 Start Camera';
-        startBtn.className = 'camera-button';
-        startBtn.style.cssText = `
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 5px;
-            font-size: 14px;
-        `;
-        startBtn.onclick = startCamera;
-        
-        const cameraControls = cameraSection.querySelector('.camera-controls');
-        if (cameraControls) {
-            cameraControls.insertBefore(startBtn, cameraControls.firstChild);
-        }
-    }
     
     // Add email button
     const emailBtn = document.createElement('button');
@@ -258,7 +262,7 @@ function setupCamera() {
     `;
     emailBtn.onclick = sendEmailWithPhotos;
     
-    const cameraControls = cameraSection.querySelector('.camera-controls');
+    const cameraControls = document.querySelector('.camera-controls');
     if (cameraControls) {
         cameraControls.appendChild(emailBtn);
     }
@@ -267,9 +271,27 @@ function setupCamera() {
     captureBtn.addEventListener('click', captureImage);
     
     // Initial status
-    updateStatus('Camera is off. Scanner should work normally.', 'info');
+    updateStatus('Camera will start automatically after printing.', 'info');
     
-    console.log('Simple camera setup complete');
+    console.log('Auto camera setup complete');
+}
+
+// Function to auto-start camera after print
+function autoStartCameraAfterPrint() {
+    updateStatus('Starting camera for photo capture...', 'info');
+    startCamera().then(() => {
+        updateStatus('Camera ready! Take photos of your documents.', 'success');
+    }).catch((err) => {
+        updateStatus('Camera failed to start. You can still email without photos.', 'error');
+    });
+}
+
+// Function to auto-stop camera after email
+function autoStopCameraAfterEmail() {
+    if (stream) {
+        stopCamera();
+        updateStatus('Camera stopped. Scanner ready for next use.', 'info');
+    }
 }
 
 // Cleanup function
@@ -282,8 +304,9 @@ function cleanupCamera() {
     console.log('Camera cleaned up');
 }
 
-// Make cleanup globally accessible
+// Make functions globally accessible
 window.cleanupCamera = cleanupCamera;
+window.autoStartCameraAfterPrint = autoStartCameraAfterPrint;
 
 // Setup when DOM is ready
 if (document.readyState === 'loading') {

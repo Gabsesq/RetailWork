@@ -355,10 +355,25 @@ document.getElementById('printButton').addEventListener('click', async function(
     try {
         await captureAndStoreLotsData(soNumber, 'warehouse');
         window.print();
+        
+        // Auto-start camera after printing for photo capture
+        setTimeout(() => {
+            if (typeof window.autoStartCameraAfterPrint === 'function') {
+                window.autoStartCameraAfterPrint();
+            }
+        }, 1000); // Wait 1 second after print dialog closes
+        
     } catch (error) {
         console.error('Error storing lots data:', error);
         // Still print even if storage fails
         window.print();
+        
+        // Auto-start camera after printing for photo capture
+        setTimeout(() => {
+            if (typeof window.autoStartCameraAfterPrint === 'function') {
+                window.autoStartCameraAfterPrint();
+            }
+        }, 1000); // Wait 1 second after print dialog closes
     }
 });
 
