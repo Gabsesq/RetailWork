@@ -6,6 +6,22 @@
     <title>Warehouse Picklist</title>
     <link rel="stylesheet" href="/css/styles.css">
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+        // Ensure jsPDF is available globally
+        if (typeof window.jsPDF === 'undefined') {
+            console.log('Loading jsPDF from CDN...');
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/jspdf@latest/dist/jspdf.umd.min.js';
+            script.onload = function() {
+                console.log('jsPDF loaded successfully');
+            };
+            script.onerror = function() {
+                console.error('Failed to load jsPDF from CDN');
+            };
+            document.head.appendChild(script);
+        }
+    </script>
     <style>
         @media print {
             .button-container, .camera-section {

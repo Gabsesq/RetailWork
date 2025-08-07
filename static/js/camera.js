@@ -105,60 +105,209 @@ function collectTemplateData() {
     return data;
 }
 
-async function captureTemplateScreenshot() {
+async function generateTemplatePDF() {
     try {
-        // Try to find the main template content area - target the actual content
-        const templateElement = document.querySelector('.order-info') || 
-                               document.querySelector('#excel-table') ||
-                               document.querySelector('.template-container') || 
-                               document.querySelector('.picklist-container') || 
-                               document.querySelector('main') || 
-                               document.body;
+        console.log('Generating PDF template...');
         
-        console.log('Capturing screenshot of element:', templateElement);
+        // Check if jsPDF is available
+        if (typeof window.jsPDF === 'undefined') {
+            console.error('jsPDF not available, using fallback method');
+            return generateTemplateData();
+        }
         
-        // Use html2canvas if available
-        if (typeof html2canvas !== 'undefined') {
-            const screenshot = await html2canvas(templateElement, {
-                useCORS: true,
-                allowTaint: true,
-                backgroundColor: '#ffffff',
-                scale: 1,
-                logging: true, // Enable logging to debug
-                width: templateElement.scrollWidth || 800,
-                height: templateElement.scrollHeight || 600,
-                scrollX: 0,
-                scrollY: 0
+        console.log('jsPDF is available, creating document...');
+        const { jsPDF } = window.jsPDF;
+        console.log('jsPDF object:', jsPDF);
+        
+        const doc = new jsPDF('p', 'mm', 'a4');
+        console.log('PDF document created');
+        
+        // Test basic PDF functionality
+        doc.text('Test PDF Generation', 20, 20);
+        const testOutput = doc.output('datauristring');
+        console.log('Test PDF output length:', testOutput.length);
+        
+        // Set up PDF styling
+        doc.setFont('helvetica');
+        doc.setFontSize(16);
+        
+        // Add header
+        const header = document.querySelector('h1.header');
+        if (header) {
+            doc.setFontSize(20);
+            doc.setFont('helvetica', 'bold');
+            doc.text(header.textContent, 105, 20, { align: 'center' });
+        }
+        
+        // Add order info
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        
+        const orderInfo = document.querySelector('.order-info');
+        if (orderInfo) {
+            const infoItems = orderInfo.querySelectorAll('.info-item');
+            let yPos = 40;
+            
+            infoItems.forEach((item, index) => {
+                const label = item.querySelector('.label');
+                const value = item.querySelector('.input-field, .so-number-box');
+                
+                if (label && value) {
+                    const labelText = label.textContent.replace(':', '');
+                    const valueText = value.textContent || '';
+                    
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(`${labelText}:`, 20, yPos);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text(valueText, 60, yPos);
+                    
+                    yPos += 8;
+                }
+            });
+        }
+        
+        // Add table
+        const table = document.querySelector('table');
+        if (table) {
+            const headers = [];
+            const rows = [];
+            
+            // Get headers
+            const ths = table.querySelectorAll('th');
+            ths.forEach(th => headers.push(th.textContent));
+            
+            // Get data rows
+            const trs = table.querySelectorAll('tbody tr');
+            trs.forEach(tr => {
+                const row = [];
+                const tds = tr.querySelectorAll('td');
+                tds.forEach(td => row.push(td.textContent || ''));
+                if (row.some(cell => cell.trim() !== '')) {
+                    rows.push(row);
+                }
             });
             
-            console.log('Screenshot captured successfully');
-            return screenshot.toDataURL('image/jpeg', 0.8);
-        } else {
-            console.log('html2canvas not available, using fallback');
-            // Fallback: create a simple representation
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            
-            canvas.width = 800;
-            canvas.height = 600;
-            
-            context.fillStyle = '#ffffff';
-            context.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Add text representation of the template
-            const templateData = collectTemplateData();
-            context.fillStyle = '#000000';
-            context.font = '16px Arial';
-            context.fillText('Template Screenshot', 20, 30);
-            context.fillText(`PO/SO: ${templateData.poSo}`, 20, 60);
-            context.fillText(`Processed By: ${templateData.processedBy}`, 20, 90);
-            
-            return canvas.toDataURL('image/jpeg', 0.8);
+            // Draw table
+            if (headers.length > 0) {
+                const startY = 70;
+                const colWidths = [40, 30, 25, 25, 35, 35]; // SKU, LOT, U/M, CNT1, PALLET 1, PALLET 2
+                let currentY = startY;
+                
+                // Draw headers
+                doc.setFillColor(51, 51, 51);
+                doc.setTextColor(255, 255, 255);
+                doc.setFont('helvetica', 'bold');
+                
+                let xPos = 20;
+                headers.forEach((header, index) => {
+                    doc.rect(xPos, currentY - 5, colWidths[index], 8, 'F');
+                    doc.text(header, xPos + 2, currentY);
+                    xPos += colWidths[index];
+                });
+                
+                currentY += 10;
+                
+                // Draw data rows
+                doc.setFillColor(255, 255, 255);
+                doc.setTextColor(0, 0, 0);
+                doc.setFont('helvetica', 'normal');
+                
+                rows.forEach((row, rowIndex) => {
+                    // Check if we need a new page
+                    if (currentY > 250) {
+                        doc.addPage();
+                        currentY = 20;
+                    }
+                    
+                    xPos = 20;
+                    row.forEach((cell, colIndex) => {
+                        // Alternate row colors
+                        if (rowIndex % 2 === 0) {
+                            doc.setFillColor(249, 249, 249);
+                        } else {
+                            doc.setFillColor(255, 255, 255);
+                        }
+                        
+                        doc.rect(xPos, currentY - 5, colWidths[colIndex], 8, 'F');
+                        doc.text(cell, xPos + 2, currentY);
+                        xPos += colWidths[colIndex];
+                    });
+                    
+                    currentY += 10;
+                });
+            }
         }
+        
+        // Convert PDF to base64
+        console.log('Converting PDF to base64...');
+        const pdfBase64 = doc.output('datauristring');
+        console.log('PDF generated successfully, length:', pdfBase64.length);
+        console.log('PDF starts with:', pdfBase64.substring(0, 50));
+        
+        // Verify the PDF was created properly
+        if (!pdfBase64 || pdfBase64.length < 100) {
+            console.error('PDF generation failed - output too small');
+            return null;
+        }
+        
+        return pdfBase64;
+        
     } catch (error) {
-        console.error('Error capturing template screenshot:', error);
+        console.error('Error generating PDF:', error);
         return null;
     }
+}
+
+function generateTemplateData() {
+    console.log('Generating template data for server-side PDF...');
+    
+    // Collect all template data
+    const templateData = {
+        header: document.querySelector('h1.header')?.textContent || 'WAREHOUSE PICKLIST / PALLET CONFIRMATION',
+        orderInfo: {},
+        tableData: {
+            headers: [],
+            rows: []
+        }
+    };
+    
+    // Collect order info
+    const orderInfo = document.querySelector('.order-info');
+    if (orderInfo) {
+        const infoItems = orderInfo.querySelectorAll('.info-item');
+        infoItems.forEach((item, index) => {
+            const label = item.querySelector('.label');
+            const value = item.querySelector('.input-field, .so-number-box');
+            
+            if (label && value) {
+                const labelText = label.textContent.replace(':', '');
+                const valueText = value.textContent || '';
+                templateData.orderInfo[labelText] = valueText;
+            }
+        });
+    }
+    
+    // Collect table data
+    const table = document.querySelector('table');
+    if (table) {
+        // Get headers
+        const ths = table.querySelectorAll('th');
+        ths.forEach(th => templateData.tableData.headers.push(th.textContent));
+        
+        // Get data rows
+        const trs = table.querySelectorAll('tbody tr');
+        trs.forEach(tr => {
+            const row = [];
+            const tds = tr.querySelectorAll('td');
+            tds.forEach(td => row.push(td.textContent || ''));
+            if (row.some(cell => cell.trim() !== '')) {
+                templateData.tableData.rows.push(row);
+            }
+        });
+    }
+    
+    console.log('Template data collected:', templateData);
+    return templateData;
 }
 
 async function sendEmailWithPhotos() {
@@ -172,9 +321,13 @@ async function sendEmailWithPhotos() {
     updateStatus('Capturing template and sending email...', 'info');
     
     try {
-        // Capture template screenshot
-        const templateScreenshot = await captureTemplateScreenshot();
-        console.log('Template screenshot captured:', templateScreenshot ? 'Yes' : 'No');
+        // Generate template PDF
+        const templatePDF = await generateTemplatePDF();
+        console.log('Template PDF generated:', templatePDF ? 'Yes' : 'No');
+        if (templatePDF) {
+            console.log('PDF data length:', templatePDF.length);
+            console.log('PDF data type:', typeof templatePDF);
+        }
         
         const response = await fetch('/api/send-email', {
             method: 'POST',
@@ -184,7 +337,7 @@ async function sendEmailWithPhotos() {
             body: JSON.stringify({
                 templateData: templateData,
                 photos: capturedImages,
-                templateScreenshot: templateScreenshot
+                templatePDF: templatePDF
             })
         });
         

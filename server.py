@@ -8,6 +8,13 @@ from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 from urllib.parse import urlparse, parse_qs
 from datetime import datetime
+import io
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
 
 # Global storage for local testing
 local_lots_data = []
@@ -21,7 +28,7 @@ EMAIL_CONFIG = {
     'recipient_email': 'gabbye@petreleaf.com'
 }
 
-def send_email_with_photos(template_data, photos, template_screenshot=None):
+def send_email_with_photos(template_data, photos, template_pdf=None):
     """
     Send email with template data, captured photos, and template screenshot
     """
@@ -50,32 +57,37 @@ def send_email_with_photos(template_data, photos, template_screenshot=None):
         
         msg.attach(MIMEText(body, 'html'))
         
-        # Attach template screenshot first (if available)
-        print(f"Template screenshot received: {template_screenshot is not None}")
-        if template_screenshot:
+        # Attach template PDF first (if available)
+        print(f"Template PDF received: {template_pdf is not None}")
+        if template_pdf:
             try:
-                print(f"Screenshot data length: {len(template_screenshot)}")
+                print(f"PDF data length: {len(template_pdf)}")
                 # Remove data URL prefix
-                if template_screenshot.startswith('data:image/jpeg;base64,'):
-                    template_screenshot = template_screenshot.replace('data:image/jpeg;base64,', '')
+                if template_pdf.startswith('data:application/pdf;base64,'):
+                    template_pdf = template_pdf.replace('data:application/pdf;base64,', '')
                     print("Removed data URL prefix")
                 
-                # Decode base64 image
-                screenshot_data = base64.b64decode(template_screenshot)
-                print(f"Decoded screenshot size: {len(screenshot_data)} bytes")
+                # Decode base64 PDF
+                pdf_data = base64.b64decode(template_pdf)
+                print(f"Decoded PDF size: {len(pdf_data)} bytes")
                 
-                # Create MIME image
-                screenshot = MIMEImage(screenshot_data)
-                screenshot.add_header('Content-Disposition', 'attachment', filename='template_screenshot.jpg')
-                msg.attach(screenshot)
-                print("Template screenshot attached successfully")
+                # Create MIME PDF
+                from email.mime.base import MIMEBase
+                from email import encoders
+                
+                pdf_attachment = MIMEBase('application', 'pdf')
+                pdf_attachment.set_payload(pdf_data)
+                encoders.encode_base64(pdf_attachment)
+                pdf_attachment.add_header('Content-Disposition', 'attachment', filename='warehouse_picklist.pdf')
+                msg.attach(pdf_attachment)
+                print("Template PDF attached successfully")
                 
             except Exception as e:
-                print(f"Error processing template screenshot: {e}")
+                print(f"Error processing template PDF: {e}")
                 import traceback
                 traceback.print_exc()
         else:
-            print("No template screenshot provided")
+            print("No template PDF provided")
         
         # Attach photos
         for i, photo_data in enumerate(photos):
@@ -217,12 +229,12 @@ class CustomHandler(BaseHTTPRequestHandler):
                 data = json.loads(post_data.decode('utf-8'))
                 template_data = data.get('templateData', {})
                 photos = data.get('photos', [])
-                template_screenshot = data.get('templateScreenshot', None)
+                template_pdf = data.get('templatePDF', None)
                 
-                print(f"Sending email with {len(photos)} photos and template screenshot")
+                print(f"Sending email with {len(photos)} photos and template PDF")
                 
                 # Send email
-                success, message = send_email_with_photos(template_data, photos, template_screenshot)
+                success, message = send_email_with_photos(template_data, photos, template_pdf)
                 
                 response_data = {
                     "success": success,
