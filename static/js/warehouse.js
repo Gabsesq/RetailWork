@@ -536,12 +536,6 @@ function initializeScannerFocus() {
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize scanner immediately
     initializeScannerFocus();
-    
-    // Re-initialize scanner after camera setup (if camera exists)
-    setTimeout(() => {
-        console.log('Re-initializing scanner after camera setup');
-        initializeScannerFocus();
-    }, 2500); // After camera initialization delay
 });
 
 // Debug panel functions

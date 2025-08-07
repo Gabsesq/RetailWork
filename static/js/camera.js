@@ -22,9 +22,40 @@ async function startCamera() {
         updateStatus('Camera ready! Click "Take Photo" to capture images.', 'success');
         document.getElementById('captureBtn').disabled = false;
         
+        // Hide the start button and show stop button
+        const startBtn = document.getElementById('startCameraBtn');
+        if (startBtn) {
+            startBtn.textContent = 'Stop Camera';
+            startBtn.onclick = stopCamera;
+            startBtn.style.background = '#dc3545';
+        }
+        
     } catch (err) {
         console.error('Camera error:', err);
         updateStatus('Camera access denied. Please allow camera permissions and refresh the page.', 'error');
+    }
+}
+
+function stopCamera() {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+    }
+    
+    const video = document.getElementById('camera');
+    if (video) {
+        video.srcObject = null;
+    }
+    
+    updateStatus('Camera stopped. Click "Start Camera" to begin.', 'info');
+    document.getElementById('captureBtn').disabled = true;
+    
+    // Show the start button again
+    const startBtn = document.getElementById('startCameraBtn');
+    if (startBtn) {
+        startBtn.textContent = 'Start Camera';
+        startBtn.onclick = startCamera;
+        startBtn.style.background = '#007bff';
     }
 }
 
@@ -358,23 +389,46 @@ async function sendEmailWithPhotos() {
     }
 }
 
-// Initialize camera functionality when DOM is ready
-function initializeCamera() {
+// Setup camera buttons without starting camera
+function setupCameraButtons() {
     // Check if camera elements exist (warehouse template only)
     const captureBtn = document.getElementById('captureBtn');
     const emailButton = document.getElementById('emailButton');
+    const startCameraBtn = document.getElementById('startCameraBtn');
     
     if (!captureBtn || !emailButton) {
-        console.log('Camera elements not found, skipping camera initialization');
+        console.log('Camera elements not found, skipping camera setup');
         return;
     }
     
     // Event listeners
     captureBtn.addEventListener('click', captureImage);
     emailButton.addEventListener('click', sendEmailWithPhotos);
-
-    // Auto-start camera when page loads
-    startCamera();
+    
+    // Add manual start camera button if it doesn't exist
+    if (!startCameraBtn) {
+        const cameraContainer = document.querySelector('.camera-container');
+        if (cameraContainer) {
+            const startBtn = document.createElement('button');
+            startBtn.id = 'startCameraBtn';
+            startBtn.textContent = 'Start Camera';
+            startBtn.className = 'camera-btn';
+            startBtn.style.cssText = `
+                background: #007bff;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                cursor: pointer;
+                margin: 10px 0;
+                font-size: 14px;
+            `;
+            startBtn.onclick = startCamera;
+            cameraContainer.insertBefore(startBtn, cameraContainer.firstChild);
+        }
+    } else {
+        startCameraBtn.onclick = startCamera;
+    }
 
     // Clean up camera when page is unloaded
     window.addEventListener('beforeunload', () => {
@@ -382,6 +436,8 @@ function initializeCamera() {
             stream.getTracks().forEach(track => track.stop());
         }
     });
+    
+    console.log('Camera buttons setup complete - camera will start manually');
 }
 
 // Cleanup function to stop camera when switching templates
@@ -397,13 +453,13 @@ function cleanupCamera() {
 // Make cleanup function globally accessible
 window.cleanupCamera = cleanupCamera;
 
-// Auto-initialize when script loads - DELAYED to prevent scanner interference
+// Manual camera initialization - only start when user wants it
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        // Delay camera initialization to let scanner setup first
-        setTimeout(initializeCamera, 2000);
+        // Don't auto-start camera - let user start it manually
+        setupCameraButtons();
     });
 } else {
-    // Delay camera initialization to let scanner setup first
-    setTimeout(initializeCamera, 2000);
+    // Don't auto-start camera - let user start it manually
+    setupCameraButtons();
 } 
