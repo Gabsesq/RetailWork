@@ -360,9 +360,18 @@ async function sendEmailWithPhotos() {
 
 // Initialize camera functionality when DOM is ready
 function initializeCamera() {
+    // Check if camera elements exist (warehouse template only)
+    const captureBtn = document.getElementById('captureBtn');
+    const emailButton = document.getElementById('emailButton');
+    
+    if (!captureBtn || !emailButton) {
+        console.log('Camera elements not found, skipping camera initialization');
+        return;
+    }
+    
     // Event listeners
-    document.getElementById('captureBtn').addEventListener('click', captureImage);
-    document.getElementById('emailButton').addEventListener('click', sendEmailWithPhotos);
+    captureBtn.addEventListener('click', captureImage);
+    emailButton.addEventListener('click', sendEmailWithPhotos);
 
     // Auto-start camera when page loads
     startCamera();
@@ -375,9 +384,26 @@ function initializeCamera() {
     });
 }
 
-// Auto-initialize when script loads
+// Cleanup function to stop camera when switching templates
+function cleanupCamera() {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+    }
+    capturedImages = [];
+    console.log('Camera cleaned up');
+}
+
+// Make cleanup function globally accessible
+window.cleanupCamera = cleanupCamera;
+
+// Auto-initialize when script loads - DELAYED to prevent scanner interference
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeCamera);
+    document.addEventListener('DOMContentLoaded', () => {
+        // Delay camera initialization to let scanner setup first
+        setTimeout(initializeCamera, 2000);
+    });
 } else {
-    initializeCamera();
+    // Delay camera initialization to let scanner setup first
+    setTimeout(initializeCamera, 2000);
 } 

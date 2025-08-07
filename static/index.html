@@ -224,6 +224,11 @@
         
         // Cleanup function to remove event listeners and debug panels
         function cleanupTemplate() {
+            // Clean up camera if it exists
+            if (typeof cleanupCamera === 'function') {
+                cleanupCamera();
+            }
+            
             // Remove debug panel if it exists
             const debugPanel = document.getElementById('debug-panel');
             if (debugPanel) {
