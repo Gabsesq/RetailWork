@@ -230,7 +230,7 @@
                 <span contenteditable="true" class="input-field"></span>
             </div>
             <div class="info-item">
-                <span class="label">Order Type:</span>
+                <span class="label">Company Name:</span>
                 <span contenteditable="true" class="input-field"></span>
             </div>
             <div class="info-item">
@@ -275,6 +275,10 @@
         </div>
     </div>
 
+    <div class="button-container" style="margin: 20px 0;">
+        <button id="printButton" class="action-button">Print</button>
+    </div>
+
     <!-- Camera Section -->
     <div class="camera-section">
         <h3>📸 Document Photos</h3>
@@ -283,7 +287,7 @@
         </div>
         
         <div class="camera-controls">
-            <button id="captureBtn" class="camera-button" disabled>📸 Take Photo</button>
+            <button id="captureBtn" class="camera-button" disabled>📸 Take Photo(s)</button>
         </div>
         
         <video id="camera" autoplay muted></video>
@@ -294,10 +298,9 @@
         </div>
     </div>
 
-    <div class="button-container">
-        <button id="printButton" class="action-button">Print</button>
-        <button id="clearButton" class="action-button">Clear</button>
+    <div class="button-container" style="margin-top: 30px;">
         <button id="emailButton" class="action-button">📧 Email with Photos</button>
+        <button id="clearButton" class="action-button">Clear</button>
     </div>
 
     <script src="/js/camera.js"></script>
