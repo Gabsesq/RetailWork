@@ -28,6 +28,18 @@ function createRow() {
     const skuTd = document.createElement("td");
     skuTd.contentEditable = true;
     skuTd.addEventListener("input", handleSkuInput);
+    skuTd.addEventListener("focus", () => {
+        // Ensure the cell is ready for scanner input
+        skuTd.focus();
+        // Select all text if any exists
+        if (skuTd.textContent) {
+            const range = document.createRange();
+            range.selectNodeContents(skuTd);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
+    });
     addCellFormatting(skuTd);
     tr.appendChild(skuTd);
     
@@ -350,4 +362,45 @@ async function captureAndStoreLotsData(soNumber, template) {
     }
     
     console.log(`Stored ${entries.length} entries for SO/PO: ${soNumber}`);
-} 
+}
+
+// Initialize scanner focus management
+document.addEventListener('DOMContentLoaded', function() {
+    // Add global focus management for scanner
+    document.addEventListener('click', function(e) {
+        if (e.target.tagName === 'TD' && e.target.contentEditable === 'true') {
+            // Focus the clicked cell
+            e.target.focus();
+            
+            // Clear any existing text for scanner input
+            if (e.target === e.target.parentElement.children[0]) { // SKU column
+                e.target.textContent = '';
+            }
+        }
+    });
+    
+    // Add keyboard event listener for scanner input
+    document.addEventListener('keydown', function(e) {
+        const activeElement = document.activeElement;
+        if (activeElement && activeElement.contentEditable === 'true' && activeElement.tagName === 'TD') {
+            // If Enter is pressed, move to next cell (common scanner behavior)
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const tr = activeElement.parentElement;
+                const currentIndex = Array.from(tr.children).indexOf(activeElement);
+                const nextCell = tr.children[currentIndex + 1];
+                if (nextCell && nextCell.contentEditable === 'true') {
+                    nextCell.focus();
+                }
+            }
+        }
+    });
+    
+    // Auto-focus first SKU cell for immediate scanning
+    setTimeout(() => {
+        const firstSkuCell = document.querySelector('#excel-table tr:first-child td:first-child');
+        if (firstSkuCell) {
+            firstSkuCell.focus();
+        }
+    }, 100);
+}); 
