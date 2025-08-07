@@ -53,7 +53,7 @@ function stopCamera() {
     // Show the start button again
     const startBtn = document.getElementById('startCameraBtn');
     if (startBtn) {
-        startBtn.textContent = 'Start Camera';
+        startBtn.textContent = '📷 Start Camera';
         startBtn.onclick = startCamera;
         startBtn.style.background = '#007bff';
     }
@@ -394,42 +394,75 @@ function setupCameraButtons() {
     // Check if camera elements exist (warehouse template only)
     const captureBtn = document.getElementById('captureBtn');
     const emailButton = document.getElementById('emailButton');
-    const startCameraBtn = document.getElementById('startCameraBtn');
     
-    if (!captureBtn || !emailButton) {
+    if (!captureBtn) {
         console.log('Camera elements not found, skipping camera setup');
         return;
     }
     
-    // Event listeners
-    captureBtn.addEventListener('click', captureImage);
-    emailButton.addEventListener('click', sendEmailWithPhotos);
+    // Add manual start camera button
+    const cameraSection = document.querySelector('.camera-section');
+    if (cameraSection) {
+        const startBtn = document.createElement('button');
+        startBtn.id = 'startCameraBtn';
+        startBtn.textContent = '📷 Start Camera';
+        startBtn.className = 'camera-button';
+        startBtn.style.cssText = `
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        `;
+        startBtn.onclick = startCamera;
+        
+        // Insert before the camera controls
+        const cameraControls = cameraSection.querySelector('.camera-controls');
+        if (cameraControls) {
+            cameraControls.insertBefore(startBtn, cameraControls.firstChild);
+        }
+    }
     
-    // Add manual start camera button if it doesn't exist
-    if (!startCameraBtn) {
-        const cameraContainer = document.querySelector('.camera-container');
-        if (cameraContainer) {
-            const startBtn = document.createElement('button');
-            startBtn.id = 'startCameraBtn';
-            startBtn.textContent = 'Start Camera';
-            startBtn.className = 'camera-btn';
-            startBtn.style.cssText = `
-                background: #007bff;
+    // Add email button if it doesn't exist
+    if (!emailButton) {
+        const cameraSection = document.querySelector('.camera-section');
+        if (cameraSection) {
+            const emailBtn = document.createElement('button');
+            emailBtn.id = 'emailButton';
+            emailBtn.textContent = '📧 Email with Photos';
+            emailBtn.className = 'camera-button';
+            emailBtn.style.cssText = `
+                background: #28a745;
                 color: white;
                 border: none;
                 padding: 10px 20px;
                 border-radius: 5px;
                 cursor: pointer;
-                margin: 10px 0;
+                margin: 5px;
                 font-size: 14px;
             `;
-            startBtn.onclick = startCamera;
-            cameraContainer.insertBefore(startBtn, cameraContainer.firstChild);
+            emailBtn.onclick = sendEmailWithPhotos;
+            
+            // Insert after the camera controls
+            const cameraControls = cameraSection.querySelector('.camera-controls');
+            if (cameraControls) {
+                cameraControls.appendChild(emailBtn);
+            }
         }
-    } else {
-        startCameraBtn.onclick = startCamera;
     }
-
+    
+    // Event listeners
+    captureBtn.addEventListener('click', captureImage);
+    if (emailButton) {
+        emailButton.addEventListener('click', sendEmailWithPhotos);
+    }
+    
+    // Update initial status
+    updateStatus('Click "Start Camera" to begin taking photos', 'info');
+    
     // Clean up camera when page is unloaded
     window.addEventListener('beforeunload', () => {
         if (stream) {
