@@ -388,13 +388,16 @@ document.addEventListener('DOMContentLoaded', function() {
             if (activeElement && activeElement.contentEditable === 'true' && activeElement.tagName === 'TD') {
                 // If Enter is pressed, move to next cell (common scanner behavior)
                 if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const tr = activeElement.parentElement;
-                    const currentIndex = Array.from(tr.children).indexOf(activeElement);
-                    const nextCell = tr.children[currentIndex + 1];
-                    if (nextCell && nextCell.contentEditable === 'true') {
-                        nextCell.focus();
-                    }
+                    // Don't prevent default for scanner input - let it complete first
+                    // Use a small delay to allow scanner to finish
+                    setTimeout(() => {
+                        const tr = activeElement.parentElement;
+                        const currentIndex = Array.from(tr.children).indexOf(activeElement);
+                        const nextCell = tr.children[currentIndex + 1];
+                        if (nextCell && nextCell.contentEditable === 'true') {
+                            nextCell.focus();
+                        }
+                    }, 50); // Small delay to let scanner complete
                 }
             }
         });
