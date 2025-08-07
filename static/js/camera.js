@@ -25,16 +25,8 @@ async function startCamera() {
         const video = document.getElementById('camera');
         video.srcObject = stream;
         
-        updateStatus('Camera ready!', 'success');
+        updateStatus('Camera ready! Take photos of your documents.', 'success');
         document.getElementById('captureBtn').disabled = false;
-        
-        // Change button to stop
-        const startBtn = document.getElementById('startCameraBtn');
-        if (startBtn) {
-            startBtn.textContent = '⏹️ Stop Camera';
-            startBtn.onclick = stopCamera;
-            startBtn.style.background = '#dc3545';
-        }
         
     } catch (err) {
         console.error('Camera error:', err);
@@ -44,14 +36,8 @@ async function startCamera() {
             updateStatus('Camera failed to start. You can still use the scanner.', 'error');
         }
         
-        // Reset button state on error
-        const startBtn = document.getElementById('startCameraBtn');
-        if (startBtn) {
-            startBtn.textContent = '📷 Start Camera';
-            startBtn.onclick = startCamera;
-            startBtn.style.background = '#007bff';
-            startBtn.disabled = false;
-        }
+        // Reset capture button state on error
+        document.getElementById('captureBtn').disabled = true;
     }
 }
 
@@ -66,23 +52,8 @@ function stopCamera() {
         video.srcObject = null;
     }
     
-    updateStatus('Camera stopped. Scanner should work normally.', 'info');
+    updateStatus('Camera stopped. Scanner ready for next use.', 'info');
     document.getElementById('captureBtn').disabled = true;
-    
-    // Change button back to start and make sure it's enabled
-    const startBtn = document.getElementById('startCameraBtn');
-    if (startBtn) {
-        startBtn.textContent = '📷 Start Camera';
-        startBtn.onclick = startCamera;
-        startBtn.style.background = '#007bff';
-        startBtn.disabled = false; // Make sure it's not disabled
-    }
-    
-    // Make sure email button is still enabled
-    const emailBtn = document.getElementById('emailButton');
-    if (emailBtn) {
-        emailBtn.disabled = false;
-    }
 }
 
 function captureImage() {
@@ -245,30 +216,14 @@ function setupCamera() {
     const captureBtn = document.getElementById('captureBtn');
     if (!captureBtn) return;
     
-    // Add email button
-    const emailBtn = document.createElement('button');
-    emailBtn.id = 'emailButton';
-    emailBtn.textContent = '📧 Email Photos';
-    emailBtn.className = 'camera-button';
-    emailBtn.style.cssText = `
-        background: #28a745;
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 5px;
-        cursor: pointer;
-        margin: 5px;
-        font-size: 14px;
-    `;
-    emailBtn.onclick = sendEmailWithPhotos;
-    
-    const cameraControls = document.querySelector('.camera-controls');
-    if (cameraControls) {
-        cameraControls.appendChild(emailBtn);
-    }
-    
     // Event listeners
     captureBtn.addEventListener('click', captureImage);
+    
+    // Add event listener to existing email button
+    const emailBtn = document.getElementById('emailButton');
+    if (emailBtn) {
+        emailBtn.addEventListener('click', sendEmailWithPhotos);
+    }
     
     // Initial status
     updateStatus('Camera will start automatically after printing.', 'info');
