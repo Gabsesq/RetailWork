@@ -160,7 +160,11 @@ function handleSkuInput(event) {
         const tr = td.parentElement;
         const inputValue = td.textContent.trim();
         
+        console.log('SKU Input detected:', inputValue, 'Length:', inputValue.length);
+        addDebugMessage('SKU Input: ' + inputValue + ' (' + inputValue.length + ' chars)');
+        
         if (!inputValue) {
+            console.log('Empty SKU input, clearing row');
             // Clear the entire row if SKU is deleted
             Array.from(tr.children).forEach(cell => {
                 cell.textContent = '';
@@ -436,22 +440,29 @@ document.addEventListener('DOMContentLoaded', function() {
         // Add click handlers only to table cells
         table.addEventListener('click', function(e) {
             if (e.target.tagName === 'TD' && e.target.contentEditable === 'true') {
+                console.log('Cell clicked, focusing:', e.target);
                 // Focus the clicked cell
                 e.target.focus();
                 
                 // Clear any existing text for scanner input
                 if (e.target === e.target.parentElement.children[0]) { // SKU column
                     e.target.textContent = '';
+                    console.log('Cleared SKU cell for scanner input');
                 }
             }
         });
         
         // Add keyboard event listener only to table cells
         table.addEventListener('keydown', function(e) {
+            console.log('Keydown event:', e.key, 'Target:', e.target.tagName, 'Active:', document.activeElement.tagName);
+            addDebugMessage('Keydown: ' + e.key);
+            
             const activeElement = document.activeElement;
             if (activeElement && activeElement.contentEditable === 'true' && activeElement.tagName === 'TD') {
                 // If Enter is pressed, move to next cell (common scanner behavior)
                 if (e.key === 'Enter') {
+                    console.log('Enter pressed in cell, moving to next cell...');
+                    addDebugMessage('Enter pressed - moving to next cell');
                     // Don't prevent default for scanner input - let it complete first
                     // Use a small delay to allow scanner to finish
                     setTimeout(() => {
@@ -459,10 +470,18 @@ document.addEventListener('DOMContentLoaded', function() {
                         const currentIndex = Array.from(tr.children).indexOf(activeElement);
                         const nextCell = tr.children[currentIndex + 1];
                         if (nextCell && nextCell.contentEditable === 'true') {
+                            console.log('Focusing next cell:', nextCell);
+                            addDebugMessage('Focusing next cell');
                             nextCell.focus();
+                        } else {
+                            console.log('No next cell available, staying in current cell');
+                            addDebugMessage('No next cell - staying put');
                         }
-                    }, 50); // Small delay to let scanner complete
+                    }, 100); // Increased delay to let scanner complete
                 }
+            } else {
+                console.log('Active element not a contentEditable TD:', activeElement);
+                addDebugMessage('Active element not a TD: ' + (activeElement ? activeElement.tagName : 'none'));
             }
         });
         
@@ -470,9 +489,28 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => {
             const firstSkuCell = table.querySelector('tr:first-child td:first-child');
             if (firstSkuCell) {
+                console.log('Auto-focusing first SKU cell');
                 firstSkuCell.focus();
             }
         }, 100);
+        
+        // Add focus/blur tracking to all cells
+        table.addEventListener('focusin', function(e) {
+            if (e.target.tagName === 'TD' && e.target.contentEditable === 'true') {
+                console.log('Cell focused:', e.target);
+                addDebugMessage('Cell focused: ' + e.target.textContent);
+            }
+        });
+        
+        table.addEventListener('focusout', function(e) {
+            if (e.target.tagName === 'TD' && e.target.contentEditable === 'true') {
+                console.log('Cell lost focus:', e.target);
+                addDebugMessage('Cell lost focus: ' + e.target.textContent);
+            }
+        });
+        
+        // Create debug panel for mobile
+        createDebugPanel();
     }
     
     // Add cleanup when leaving the page
@@ -482,4 +520,73 @@ document.addEventListener('DOMContentLoaded', function() {
             document.activeElement.blur();
         }
     });
-}); 
+});
+
+// Debug panel functions
+function createDebugPanel() {
+    // Create debug panel
+    const debugPanel = document.createElement('div');
+    debugPanel.id = 'debug-panel';
+    debugPanel.style.cssText = `
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        width: 300px;
+        max-height: 200px;
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 10px;
+        font-family: monospace;
+        font-size: 12px;
+        border-radius: 5px;
+        overflow-y: auto;
+        z-index: 10000;
+        display: none;
+    `;
+    
+    // Create toggle button
+    const toggleBtn = document.createElement('button');
+    toggleBtn.textContent = 'Debug';
+    toggleBtn.style.cssText = `
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 10001;
+        padding: 5px 10px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+    `;
+    
+    toggleBtn.onclick = function() {
+        debugPanel.style.display = debugPanel.style.display === 'none' ? 'block' : 'none';
+    };
+    
+    document.body.appendChild(debugPanel);
+    document.body.appendChild(toggleBtn);
+    
+    // Show panel by default on mobile
+    if (window.innerWidth <= 768) {
+        debugPanel.style.display = 'block';
+    }
+}
+
+function addDebugMessage(message) {
+    const debugPanel = document.getElementById('debug-panel');
+    if (debugPanel) {
+        const timestamp = new Date().toLocaleTimeString();
+        const messageDiv = document.createElement('div');
+        messageDiv.textContent = `[${timestamp}] ${message}`;
+        debugPanel.appendChild(messageDiv);
+        
+        // Keep only last 10 messages
+        while (debugPanel.children.length > 10) {
+            debugPanel.removeChild(debugPanel.firstChild);
+        }
+        
+        // Auto-scroll to bottom
+        debugPanel.scrollTop = debugPanel.scrollHeight;
+    }
+} 
