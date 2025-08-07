@@ -19,7 +19,7 @@ EMAIL_CONFIG = {
     'smtp_port': 587,
     'sender_email': 'gabbyesquibel1999@gmail.com',
     'sender_password': 'efhg jlbn tzdk iroo',
-    'recipient_email': 'gabbye@petreleaf.com'
+    'recipient_emails': ['gabbye@petreleaf.com', 'PRshipping@petreleaf.com']
 }
 
 def generate_server_pdf(template_data):
@@ -88,8 +88,11 @@ def send_email_with_photos(template_data, photos, template_pdf=None):
         # Create message
         msg = MIMEMultipart()
         msg['From'] = EMAIL_CONFIG['sender_email']
-        msg['To'] = EMAIL_CONFIG['recipient_email']
-        msg['Subject'] = template_data.get('poSo', 'No PO/SO')
+        msg['To'] = ', '.join(EMAIL_CONFIG['recipient_emails'])  # Join multiple emails with commas
+        # Get company name and PO number for subject line
+        company_name = template_data.get('companyName', 'Unknown Company')
+        po_number = template_data.get('poSo', 'No PO/SO')
+        msg['Subject'] = f"{company_name} {po_number}"
         
         # Create email body
         body = f"""
@@ -97,7 +100,7 @@ def send_email_with_photos(template_data, photos, template_pdf=None):
         <body>
         <h2>Warehouse Picklist Report</h2>
         <p><strong>Processed By:</strong> {template_data.get('processedBy', 'N/A')}</p>
-        <p><strong>Order Type:</strong> {template_data.get('orderType', 'N/A')}</p>
+        <p><strong>Company Name:</strong> {template_data.get('companyName', 'N/A')}</p>
         <p><strong>PO/SO Number:</strong> {template_data.get('poSo', 'N/A')}</p>
         <p><strong>Timestamp:</strong> {template_data.get('timestamp', 'N/A')}</p>
         <p><strong>Number of Photos:</strong> {len(photos)}</p>
@@ -203,7 +206,7 @@ Order Information:
         server.starttls()
         server.login(EMAIL_CONFIG['sender_email'], EMAIL_CONFIG['sender_password'])
         text = msg.as_string()
-        server.sendmail(EMAIL_CONFIG['sender_email'], EMAIL_CONFIG['recipient_email'], text)
+        server.sendmail(EMAIL_CONFIG['sender_email'], EMAIL_CONFIG['recipient_emails'], text)
         server.quit()
         
         return True, "Email sent successfully"

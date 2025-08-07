@@ -1,6 +1,9 @@
 let stream = null;
 let capturedImages = [];
 
+// Camera state
+let currentCameraMode = 'environment'; // 'environment' (back) or 'user' (front)
+
 // Simple camera functions
 async function startCamera() {
     try {
@@ -11,22 +14,49 @@ async function startCamera() {
             setTimeout(() => reject(new Error('Camera timeout')), 10000); // 10 second timeout
         });
         
-        // Even simpler constraints - just basic camera access
-        const constraints = {
-            video: true
+        // Try to use back camera (environment) first, fallback to front camera
+        let constraints = {
+            video: {
+                facingMode: currentCameraMode
+            }
         };
 
         // Race between camera start and timeout
-        stream = await Promise.race([
-            navigator.mediaDevices.getUserMedia(constraints),
-            timeoutPromise
-        ]);
+        try {
+            stream = await Promise.race([
+                navigator.mediaDevices.getUserMedia(constraints),
+                timeoutPromise
+            ]);
+        } catch (err) {
+            // If preferred camera fails, try the other camera
+            console.log(`Failed to start ${currentCameraMode} camera, trying alternative...`);
+            currentCameraMode = currentCameraMode === 'environment' ? 'user' : 'environment';
+            constraints = {
+                video: {
+                    facingMode: currentCameraMode
+                }
+            };
+            
+            stream = await Promise.race([
+                navigator.mediaDevices.getUserMedia(constraints),
+                timeoutPromise
+            ]);
+        }
         
         const video = document.getElementById('camera');
         video.srcObject = stream;
         
-        updateStatus('Camera ready! Take photos of your documents.', 'success');
+        updateStatus(`Camera ready! (${currentCameraMode === 'environment' ? 'Back' : 'Front'}) Take photos of your documents.`, 'success');
         document.getElementById('captureBtn').disabled = false;
+        
+        // Enable flip button
+        const flipBtn = document.getElementById('flipCameraBtn');
+        if (flipBtn) {
+            flipBtn.disabled = false;
+        }
+        
+        // Update flip button text
+        updateFlipButtonText();
         
     } catch (err) {
         console.error('Camera error:', err);
@@ -38,6 +68,52 @@ async function startCamera() {
         
         // Reset capture button state on error
         document.getElementById('captureBtn').disabled = true;
+    }
+}
+
+// Function to flip camera
+async function flipCamera() {
+    if (!stream) {
+        updateStatus('Camera not started', 'error');
+        return;
+    }
+    
+    try {
+        updateStatus('Switching camera...', 'info');
+        
+        // Stop current stream
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+        
+        // Toggle camera mode
+        currentCameraMode = currentCameraMode === 'environment' ? 'user' : 'environment';
+        
+        // Start new camera with different facing mode
+        const constraints = {
+            video: {
+                facingMode: currentCameraMode
+            }
+        };
+        
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        const video = document.getElementById('camera');
+        video.srcObject = stream;
+        
+        updateStatus(`Camera flipped! (${currentCameraMode === 'environment' ? 'Back' : 'Front'})`, 'success');
+        updateFlipButtonText();
+        
+    } catch (err) {
+        console.error('Error flipping camera:', err);
+        updateStatus('Failed to flip camera. Using current camera.', 'error');
+    }
+}
+
+// Update flip button text
+function updateFlipButtonText() {
+    const flipBtn = document.getElementById('flipCameraBtn');
+    if (flipBtn) {
+        flipBtn.textContent = currentCameraMode === 'environment' ? '📱 Front Camera' : '📷 Back Camera';
     }
 }
 
@@ -54,6 +130,12 @@ function stopCamera() {
     
     updateStatus('Camera stopped. Scanner ready for next use.', 'info');
     document.getElementById('captureBtn').disabled = true;
+    
+    // Disable flip button
+    const flipBtn = document.getElementById('flipCameraBtn');
+    if (flipBtn) {
+        flipBtn.disabled = true;
+    }
 }
 
 function captureImage() {
@@ -123,7 +205,7 @@ function updateStatus(message, type) {
 function collectTemplateData() {
     return {
         processedBy: document.querySelector('.info-item .input-field')?.textContent || '',
-        orderType: document.querySelectorAll('.info-item .input-field')[1]?.textContent || '',
+        companyName: document.querySelectorAll('.info-item .input-field')[1]?.textContent || '',
         poSo: document.querySelector('.so-number-box')?.textContent || '',
         timestamp: new Date().toISOString()
     };
@@ -216,6 +298,33 @@ function setupCamera() {
     const captureBtn = document.getElementById('captureBtn');
     if (!captureBtn) return;
     
+    // Add flip camera button
+    const cameraControls = document.querySelector('.camera-controls');
+    if (cameraControls) {
+        const flipBtn = document.createElement('button');
+        flipBtn.id = 'flipCameraBtn';
+        flipBtn.textContent = '📱 Front Camera';
+        flipBtn.className = 'camera-button';
+        flipBtn.style.cssText = `
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        `;
+        flipBtn.onclick = flipCamera;
+        flipBtn.disabled = true; // Disabled until camera starts
+        
+        // Insert flip button after capture button
+        const captureBtnParent = captureBtn.parentNode;
+        if (captureBtnParent) {
+            captureBtnParent.insertBefore(flipBtn, captureBtn.nextSibling);
+        }
+    }
+    
     // Event listeners
     captureBtn.addEventListener('click', captureImage);
     
@@ -226,7 +335,7 @@ function setupCamera() {
     }
     
     // Initial status
-    updateStatus('Camera will start automatically after printing.', 'info');
+    updateStatus('Camera will start automatically after printing (Back camera preferred).', 'info');
     
     console.log('Auto camera setup complete');
 }
