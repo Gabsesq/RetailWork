@@ -2,7 +2,9 @@
 //     ? 'http://127.0.0.1:5000'
 //     : 'https://retailpr-f15aaf777d4b.herokuapp.com';
 
-const SKUMAP = {
+// Only declare SKUMAP if it doesn't already exist
+if (typeof window.SKUMAP === 'undefined') {
+    window.SKUMAP = {
     "860009592568": "Post-Bio-GH",
     "860009592551": "Omega-Alg",
     "850016364982": "Edi-DR-BC-SML",
@@ -43,7 +45,8 @@ const SKUMAP = {
     "860009592544": "TS-2in1-Shampoo",
     "860008876744": "2in1-SK-CT",
     "860008221971": "SK-PW-RL",
-};
+    };
+}
 
 window.LOT_CODES = {}; // Will be populated from JSON
 
