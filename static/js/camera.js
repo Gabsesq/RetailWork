@@ -107,11 +107,15 @@ function collectTemplateData() {
 
 async function captureTemplateScreenshot() {
     try {
-        // Try to find the main template content area
-        const templateElement = document.querySelector('.picklist-container') || 
+        // Try to find the main template content area - target the actual content
+        const templateElement = document.querySelector('.order-info') || 
+                               document.querySelector('#excel-table') ||
                                document.querySelector('.template-container') || 
+                               document.querySelector('.picklist-container') || 
                                document.querySelector('main') || 
                                document.body;
+        
+        console.log('Capturing screenshot of element:', templateElement);
         
         // Use html2canvas if available
         if (typeof html2canvas !== 'undefined') {
@@ -120,12 +124,17 @@ async function captureTemplateScreenshot() {
                 allowTaint: true,
                 backgroundColor: '#ffffff',
                 scale: 1,
-                logging: false,
-                width: templateElement.scrollWidth,
-                height: templateElement.scrollHeight
+                logging: true, // Enable logging to debug
+                width: templateElement.scrollWidth || 800,
+                height: templateElement.scrollHeight || 600,
+                scrollX: 0,
+                scrollY: 0
             });
+            
+            console.log('Screenshot captured successfully');
             return screenshot.toDataURL('image/jpeg', 0.8);
         } else {
+            console.log('html2canvas not available, using fallback');
             // Fallback: create a simple representation
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
@@ -137,6 +146,7 @@ async function captureTemplateScreenshot() {
             context.fillRect(0, 0, canvas.width, canvas.height);
             
             // Add text representation of the template
+            const templateData = collectTemplateData();
             context.fillStyle = '#000000';
             context.font = '16px Arial';
             context.fillText('Template Screenshot', 20, 30);
@@ -164,6 +174,7 @@ async function sendEmailWithPhotos() {
     try {
         // Capture template screenshot
         const templateScreenshot = await captureTemplateScreenshot();
+        console.log('Template screenshot captured:', templateScreenshot ? 'Yes' : 'No');
         
         const response = await fetch('/api/send-email', {
             method: 'POST',

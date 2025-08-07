@@ -51,14 +51,18 @@ def send_email_with_photos(template_data, photos, template_screenshot=None):
         msg.attach(MIMEText(body, 'html'))
         
         # Attach template screenshot first (if available)
+        print(f"Template screenshot received: {template_screenshot is not None}")
         if template_screenshot:
             try:
+                print(f"Screenshot data length: {len(template_screenshot)}")
                 # Remove data URL prefix
                 if template_screenshot.startswith('data:image/jpeg;base64,'):
                     template_screenshot = template_screenshot.replace('data:image/jpeg;base64,', '')
+                    print("Removed data URL prefix")
                 
                 # Decode base64 image
                 screenshot_data = base64.b64decode(template_screenshot)
+                print(f"Decoded screenshot size: {len(screenshot_data)} bytes")
                 
                 # Create MIME image
                 screenshot = MIMEImage(screenshot_data)
@@ -68,6 +72,10 @@ def send_email_with_photos(template_data, photos, template_screenshot=None):
                 
             except Exception as e:
                 print(f"Error processing template screenshot: {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            print("No template screenshot provided")
         
         # Attach photos
         for i, photo_data in enumerate(photos):
