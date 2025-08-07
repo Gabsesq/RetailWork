@@ -9,12 +9,6 @@ from email.mime.image import MIMEImage
 from urllib.parse import urlparse, parse_qs
 from datetime import datetime
 import io
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter, A4
-from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
 
 # Global storage for local testing
 local_lots_data = []
@@ -27,6 +21,64 @@ EMAIL_CONFIG = {
     'sender_password': 'efhg jlbn tzdk iroo',
     'recipient_email': 'gabbye@petreleaf.com'
 }
+
+def generate_server_pdf(template_data):
+    """Generate simple HTML representation for email"""
+    try:
+        # Create HTML content instead of PDF
+        html_content = f"""
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                .header {{ text-align: center; font-size: 24px; font-weight: bold; margin-bottom: 30px; }}
+                .info-section {{ margin-bottom: 20px; }}
+                .info-row {{ margin: 10px 0; }}
+                .label {{ font-weight: bold; }}
+                table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
+                th {{ background-color: #333; color: white; padding: 10px; text-align: center; }}
+                td {{ border: 1px solid #ddd; padding: 8px; text-align: center; }}
+                tr:nth-child(even) {{ background-color: #f2f2f2; }}
+            </style>
+        </head>
+        <body>
+            <div class="header">{template_data.get('header', 'WAREHOUSE PICKLIST / PALLET CONFIRMATION')}</div>
+            
+            <div class="info-section">
+        """
+        
+        # Add order info
+        if 'orderInfo' in template_data:
+            for label, value in template_data['orderInfo'].items():
+                html_content += f'<div class="info-row"><span class="label">{label}:</span> {value}</div>'
+        
+        html_content += '</div>'
+        
+        # Add table
+        if 'tableData' in template_data and template_data['tableData']['headers']:
+            html_content += '<table><thead><tr>'
+            for header in template_data['tableData']['headers']:
+                html_content += f'<th>{header}</th>'
+            html_content += '</tr></thead><tbody>'
+            
+            for row in template_data['tableData']['rows']:
+                html_content += '<tr>'
+                for cell in row:
+                    html_content += f'<td>{cell}</td>'
+                html_content += '</tr>'
+            
+            html_content += '</tbody></table>'
+        
+        html_content += '</body></html>'
+        
+        print(f"HTML template generated, length: {len(html_content)} characters")
+        return html_content
+        
+    except Exception as e:
+        print(f"Error generating HTML template: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 def send_email_with_photos(template_data, photos, template_pdf=None):
     """
@@ -57,30 +109,69 @@ def send_email_with_photos(template_data, photos, template_pdf=None):
         
         msg.attach(MIMEText(body, 'html'))
         
-        # Attach template PDF first (if available)
+        # Handle template PDF or template data
         print(f"Template PDF received: {template_pdf is not None}")
         if template_pdf:
             try:
-                print(f"PDF data length: {len(template_pdf)}")
-                # Remove data URL prefix
-                if template_pdf.startswith('data:application/pdf;base64,'):
+                # Check if it's a base64 PDF or template data
+                if isinstance(template_pdf, str) and template_pdf.startswith('data:application/pdf;base64,'):
+                    # Client-side PDF
+                    print(f"Processing client-side PDF, length: {len(template_pdf)}")
                     template_pdf = template_pdf.replace('data:application/pdf;base64,', '')
-                    print("Removed data URL prefix")
+                    pdf_data = base64.b64decode(template_pdf)
+                    print(f"Decoded client PDF size: {len(pdf_data)} bytes")
+                elif isinstance(template_pdf, dict):
+                    # Template data - generate HTML template on server
+                    print("Processing template data, generating server-side HTML template")
+                    html_template = generate_server_pdf(template_pdf)
+                    if not html_template:
+                        print("Failed to generate server-side HTML template")
+                        return False, "Failed to generate template"
+                    
+                    # Create a simple text file with the template data
+                    template_text = f"""
+WAREHOUSE PICKLIST / PALLET CONFIRMATION
+
+Order Information:
+"""
+                    for label, value in template_pdf.get('orderInfo', {}).items():
+                        template_text += f"{label}: {value}\n"
+                    
+                    template_text += "\nTable Data:\n"
+                    if 'tableData' in template_pdf and template_pdf['tableData']['headers']:
+                        # Add headers
+                        template_text += " | ".join(template_pdf['tableData']['headers']) + "\n"
+                        template_text += "-" * 50 + "\n"
+                        
+                        # Add data rows
+                        for row in template_pdf['tableData']['rows']:
+                            template_text += " | ".join(row) + "\n"
+                    
+                    pdf_data = template_text.encode('utf-8')
+                else:
+                    print("Unknown template PDF format")
+                    return False, "Invalid PDF format"
                 
-                # Decode base64 PDF
-                pdf_data = base64.b64decode(template_pdf)
-                print(f"Decoded PDF size: {len(pdf_data)} bytes")
-                
-                # Create MIME PDF
+                # Create MIME attachment
                 from email.mime.base import MIMEBase
                 from email import encoders
                 
-                pdf_attachment = MIMEBase('application', 'pdf')
-                pdf_attachment.set_payload(pdf_data)
-                encoders.encode_base64(pdf_attachment)
-                pdf_attachment.add_header('Content-Disposition', 'attachment', filename='warehouse_picklist.pdf')
-                msg.attach(pdf_attachment)
-                print("Template PDF attached successfully")
+                if isinstance(template_pdf, dict):
+                    # Text file for template data
+                    attachment = MIMEBase('text', 'plain')
+                    attachment.set_payload(pdf_data)
+                    encoders.encode_base64(attachment)
+                    attachment.add_header('Content-Disposition', 'attachment', filename='warehouse_picklist.txt')
+                    msg.attach(attachment)
+                    print("Template text file attached successfully")
+                else:
+                    # PDF file for client-side PDF
+                    pdf_attachment = MIMEBase('application', 'pdf')
+                    pdf_attachment.set_payload(pdf_data)
+                    encoders.encode_base64(pdf_attachment)
+                    pdf_attachment.add_header('Content-Disposition', 'attachment', filename='warehouse_picklist.pdf')
+                    msg.attach(pdf_attachment)
+                    print("Template PDF attached successfully")
                 
             except Exception as e:
                 print(f"Error processing template PDF: {e}")

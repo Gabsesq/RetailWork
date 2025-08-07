@@ -364,43 +364,55 @@ async function captureAndStoreLotsData(soNumber, template) {
     console.log(`Stored ${entries.length} entries for SO/PO: ${soNumber}`);
 }
 
-// Initialize scanner focus management
+// Initialize scanner focus management - TARGETED APPROACH
 document.addEventListener('DOMContentLoaded', function() {
-    // Add global focus management for scanner
-    document.addEventListener('click', function(e) {
-        if (e.target.tagName === 'TD' && e.target.contentEditable === 'true') {
-            // Focus the clicked cell
-            e.target.focus();
-            
-            // Clear any existing text for scanner input
-            if (e.target === e.target.parentElement.children[0]) { // SKU column
-                e.target.textContent = '';
-            }
-        }
-    });
-    
-    // Add keyboard event listener for scanner input
-    document.addEventListener('keydown', function(e) {
-        const activeElement = document.activeElement;
-        if (activeElement && activeElement.contentEditable === 'true' && activeElement.tagName === 'TD') {
-            // If Enter is pressed, move to next cell (common scanner behavior)
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const tr = activeElement.parentElement;
-                const currentIndex = Array.from(tr.children).indexOf(activeElement);
-                const nextCell = tr.children[currentIndex + 1];
-                if (nextCell && nextCell.contentEditable === 'true') {
-                    nextCell.focus();
+    // Only target our specific table cells, not global document
+    const table = document.getElementById('excel-table');
+    if (table) {
+        // Add click handlers only to table cells
+        table.addEventListener('click', function(e) {
+            if (e.target.tagName === 'TD' && e.target.contentEditable === 'true') {
+                // Focus the clicked cell
+                e.target.focus();
+                
+                // Clear any existing text for scanner input
+                if (e.target === e.target.parentElement.children[0]) { // SKU column
+                    e.target.textContent = '';
                 }
             }
+        });
+        
+        // Add keyboard event listener only to table cells
+        table.addEventListener('keydown', function(e) {
+            const activeElement = document.activeElement;
+            if (activeElement && activeElement.contentEditable === 'true' && activeElement.tagName === 'TD') {
+                // If Enter is pressed, move to next cell (common scanner behavior)
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const tr = activeElement.parentElement;
+                    const currentIndex = Array.from(tr.children).indexOf(activeElement);
+                    const nextCell = tr.children[currentIndex + 1];
+                    if (nextCell && nextCell.contentEditable === 'true') {
+                        nextCell.focus();
+                    }
+                }
+            }
+        });
+        
+        // Auto-focus first SKU cell for immediate scanning (only if table exists)
+        setTimeout(() => {
+            const firstSkuCell = table.querySelector('tr:first-child td:first-child');
+            if (firstSkuCell) {
+                firstSkuCell.focus();
+            }
+        }, 100);
+    }
+    
+    // Add cleanup when leaving the page
+    window.addEventListener('beforeunload', function() {
+        // Clear any focus to prevent interference
+        if (document.activeElement) {
+            document.activeElement.blur();
         }
     });
-    
-    // Auto-focus first SKU cell for immediate scanning
-    setTimeout(() => {
-        const firstSkuCell = document.querySelector('#excel-table tr:first-child td:first-child');
-        if (firstSkuCell) {
-            firstSkuCell.focus();
-        }
-    }, 100);
 }); 
