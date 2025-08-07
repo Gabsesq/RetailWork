@@ -5,6 +5,7 @@
 !Procfile
 !runtime.txt
 !main.py
+!server.py
 !excel_to_json.py
 !static/
 !static/*
@@ -37,3 +38,6 @@ node_modules/
 
 # Allow Vercel trigger file
 !vercel_trigger.txt
+
+# Render deployment files
+!render.yaml
