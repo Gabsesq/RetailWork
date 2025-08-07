@@ -2,6 +2,4 @@ flask
 flask-cors
 openpyxl
 gunicorn
-python-dotenv
-smtplib
-email 
+python-dotenv 
