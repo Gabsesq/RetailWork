@@ -3,3 +3,11 @@ flask-cors
 openpyxl
 gunicorn
 python-dotenv 
+
+"version": 2,
+  "builds": [
+    {
+      "src": "public/**/*",
+      "use": "@vercel/static"
+    }
+  ]
