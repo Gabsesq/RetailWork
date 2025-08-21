@@ -99,12 +99,13 @@ def load_existing_json():
 
 
 def compare_and_print_new_lots(existing_data, new_data):
-    """Compare existing and new data, print new lots"""
+    """Compare existing and new data, print new lots and save to Excel"""
     print("\n" + "="*60)
     print("NEW LOTS DETECTED:")
     print("="*60)
     
     new_lots_found = False
+    all_new_lots = []  # Store all new lots for Excel export
     
     for sku, lots in new_data.items():
         if sku not in existing_data:
@@ -112,6 +113,12 @@ def compare_and_print_new_lots(existing_data, new_data):
             for lot, lot_info in lots.items():
                 bb_date = lot_info.get("bb_date", "") if isinstance(lot_info, dict) else str(lot_info)
                 print(f"  📦 New lot: {lot} (BB: {bb_date})")
+                all_new_lots.append({
+                    'SKU': sku,
+                    'Lot Code': lot,
+                    'Best By Date': bb_date,
+                    'Type': 'New SKU'
+                })
             new_lots_found = True
         else:
             # Check for new lots in existing SKU
@@ -125,10 +132,57 @@ def compare_and_print_new_lots(existing_data, new_data):
                 for lot, lot_info in new_lots_for_sku:
                     bb_date = lot_info.get("bb_date", "") if isinstance(lot_info, dict) else str(lot_info)
                     print(f"  📦 New lot: {lot} (BB: {bb_date})")
+                    all_new_lots.append({
+                        'SKU': sku,
+                        'Lot Code': lot,
+                        'Best By Date': bb_date,
+                        'Type': 'New Lot'
+                    })
                 new_lots_found = True
     
     if not new_lots_found:
         print("✅ No new lots detected - all data is up to date!")
+    else:
+        # Save new lots to Excel file
+        try:
+            from openpyxl import load_workbook
+            from openpyxl import Workbook
+            desktop_path = r"C:\Users\GabbyEsquibel\OneDrive - Pet Releaf\Desktop\newLots.xlsx"
+            
+            # Try to load existing file, create new one if it doesn't exist
+            try:
+                wb = load_workbook(desktop_path)
+                ws = wb.active
+                print(f"📂 Loaded existing newLots.xlsx file")
+            except FileNotFoundError:
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "New Lots Detected"
+                # Add headers for new file
+                headers = ['SKU', 'Lot Code', 'Best By Date', 'Type', 'Detection Date']
+                for col, header in enumerate(headers, 1):
+                    ws.cell(row=1, column=col, value=header)
+                print(f"📄 Created new newLots.xlsx file")
+            
+            # Find the next empty row
+            next_row = ws.max_row + 1
+            
+            # Add new lots data
+            detection_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            for lot_data in all_new_lots:
+                ws.cell(row=next_row, column=1, value=lot_data['SKU'])
+                ws.cell(row=next_row, column=2, value=lot_data['Lot Code'])
+                ws.cell(row=next_row, column=3, value=lot_data['Best By Date'])
+                ws.cell(row=next_row, column=4, value=lot_data['Type'])
+                ws.cell(row=next_row, column=5, value=detection_date)
+                next_row += 1
+            
+            # Save the updated file
+            wb.save(desktop_path)
+            print(f"📊 Added {len(all_new_lots)} new lots to existing file: {desktop_path}")
+            
+        except Exception as e:
+            print(f"⚠️  Could not update newLots.xlsx: {e}")
     
     print("="*60)
 
