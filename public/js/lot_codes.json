@@ -30,25 +30,27 @@
       "bb_date": ""
     }
   },
-  "EDI-STRESS-PEPP-SML": {},
-  "EDI-STRESS-PEPP-LRG": {
+  "EDI-STRESS-PEPP-SML": {
     "1": {
-      "bb_date": ""
+      "bb_date": "1900-01-02"
     },
     "2": {
       "bb_date": ""
     }
   },
-  "300-SR-HO": {
+  "EDI-STRESS-PEPP-LRG": {
     "2": {
+      "bb_date": ""
+    },
+    "1": {
+      "bb_date": ""
+    },
+    "3": {
       "bb_date": ""
     }
   },
-  "600-SR-HO": {
-    "2": {
-      "bb_date": ""
-    }
-  },
+  "300-SR-HO": {},
+  "600-SR-HO": {},
   "150-MINI-STRESS-HO": {},
   "180-CAT-SR": {},
   "1500-SR-EQN": {},
