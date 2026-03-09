@@ -2,11 +2,15 @@
 Automating our retail scanner at work; eventually this will connect to QuickBooks.
 
 ### Lot code data flow (critical)
-- **Source spreadsheet**: `LotCode.xlsx` in the project root is the current master file for lot codes and best-by dates.
+
+- **Source spreadsheet**: `lot code file stored on local computer
+
 - **Converter script**: `excel_to_json.py` reads from the Excel source and generates JSON lot data.
+
 - **Generated outputs** (do not edit by hand):
   - `static/js/lot_codes.json`
   - `public/js/lot_codes.json`
+
 - **Site usage**: `lots.html` and other pages read from `public/js/lot_codes.json` to power the lot-code lookups.
 
 ### How the automatic updates run
@@ -18,6 +22,7 @@ Automating our retail scanner at work; eventually this will connect to QuickBook
     1. Run `python excel_to_json.py` to regenerate the JSON files.
     2. If the script succeeds, run `git add .` and `git commit -m "Auto-update lot codes - <timestamp>"`.
     3. Push changes to GitHub: `origin main` and `origin vercel --force`.
+
 - **Manual run (for testing)**:
   1. Open PowerShell.
   2. `cd "C:\Users\GabbyEsquibel\OneDrive - Pet Releaf\Desktop\RetailWork\RetailWork"`
@@ -32,5 +37,9 @@ Automating our retail scanner at work; eventually this will connect to QuickBook
 - **Git `index.lock` error**: If scripts log `Unable to create .../.git/index.lock`, delete the stale lock and retry:
   - In PowerShell:  
     `cd "C:\Users\GabbyEsquibel\OneDrive - Pet Releaf\Desktop\RetailWork\RetailWork"`  
-    `Remove-Item -Force ".git\index.lock"`
+    `Remove-Item -Force ".git\index.lock"
+    `
 - **“JSON looks wrong”**: If `lot_codes.json` suddenly fills with formulas or dates instead of real SKUs, restore it from git (`git restore static/js/lot_codes.json public/js/lot_codes.json`), then fix the Excel layout or column mappings in `excel_to_json.py` before re-running.
+
+
+Add stress peppered family
