@@ -41,4 +41,5 @@ EXCEL_SKU = {
     "TS-2in1-Shampoo": "TS-2 IN 1 SHAMPOO",
     "2in1-SK-CT": "2 IN 1 SK-CT",
     "SK-PW-RL": "SK-PW-RL",
+    "EDI-STRESS-PEPP-FAM": "EDI-STRESS-PEPP-FAM",
 }
