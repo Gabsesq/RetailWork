@@ -109,10 +109,10 @@ def compare_and_print_new_lots(existing_data, new_data):
     
     for sku, lots in new_data.items():
         if sku not in existing_data:
-            print(f"\n🆕 NEW SKU: {sku}")
+            print(f"\nNEW SKU: {sku}")
             for lot, lot_info in lots.items():
                 bb_date = lot_info.get("bb_date", "") if isinstance(lot_info, dict) else str(lot_info)
-                print(f"  📦 New lot: {lot} (BB: {bb_date})")
+                print(f"  New lot: {lot} (BB: {bb_date})")
                 all_new_lots.append({
                     'SKU': sku,
                     'Lot Code': lot,
@@ -128,10 +128,10 @@ def compare_and_print_new_lots(existing_data, new_data):
                     new_lots_for_sku.append((lot, lot_info))
             
             if new_lots_for_sku:
-                print(f"\n📦 NEW LOTS for existing SKU: {sku}")
+                print(f"\nNEW LOTS for existing SKU: {sku}")
                 for lot, lot_info in new_lots_for_sku:
                     bb_date = lot_info.get("bb_date", "") if isinstance(lot_info, dict) else str(lot_info)
-                    print(f"  📦 New lot: {lot} (BB: {bb_date})")
+                    print(f"  New lot: {lot} (BB: {bb_date})")
                     all_new_lots.append({
                         'SKU': sku,
                         'Lot Code': lot,
@@ -141,7 +141,7 @@ def compare_and_print_new_lots(existing_data, new_data):
                 new_lots_found = True
     
     if not new_lots_found:
-        print("✅ No new lots detected - all data is up to date!")
+        print("No new lots detected - all data is up to date!")
     else:
         # Save new lots to Excel file
         try:
@@ -153,7 +153,7 @@ def compare_and_print_new_lots(existing_data, new_data):
             try:
                 wb = load_workbook(desktop_path)
                 ws = wb.active
-                print(f"📂 Loaded existing newLots.xlsx file")
+                print("Loaded existing newLots.xlsx file")
             except FileNotFoundError:
                 wb = Workbook()
                 ws = wb.active
@@ -162,7 +162,7 @@ def compare_and_print_new_lots(existing_data, new_data):
                 headers = ['SKU', 'Lot Code', 'Best By Date', 'Type', 'Detection Date']
                 for col, header in enumerate(headers, 1):
                     ws.cell(row=1, column=col, value=header)
-                print(f"📄 Created new newLots.xlsx file")
+                print("Created new newLots.xlsx file")
             
             # Find the next empty row
             next_row = ws.max_row + 1
@@ -179,10 +179,10 @@ def compare_and_print_new_lots(existing_data, new_data):
             
             # Save the updated file
             wb.save(desktop_path)
-            print(f"📊 Added {len(all_new_lots)} new lots to existing file: {desktop_path}")
+            print(f"Added {len(all_new_lots)} new lots to existing file: {desktop_path}")
             
         except Exception as e:
-            print(f"⚠️  Could not update newLots.xlsx: {e}")
+            print(f"Could not update newLots.xlsx: {e}")
     
     print("="*60)
 
@@ -230,11 +230,11 @@ def convert_excel_to_json():
             
         with open('public/index.html', 'w') as f:
             f.write(content)
-        print("🚀 Added deployment trigger to index.html")
+        print("Added deployment trigger to index.html")
     except Exception as e:
-        print(f"⚠️  Could not update index.html: {e}")
+        print(f"Could not update index.html: {e}")
     
-    print(f"\n💾 Saved updated lot codes to JSON files")
+    print("\nSaved updated lot codes to JSON files")
 
 if __name__ == "__main__":
     convert_excel_to_json() 
