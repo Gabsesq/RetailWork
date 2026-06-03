@@ -71,6 +71,17 @@
     </style>
 </head>
 <body>
+    <div class="template-toggle">
+        <div class="toggle-container">
+            <span class="template-label">Retail</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="modeToggle" checked aria-label="Switch between Retail and Warehouse">
+                <span class="toggle-slider"></span>
+            </label>
+            <span class="template-label">Warehouse</span>
+        </div>
+    </div>
+
     <h1 class="header">WAREHOUSE PICKLIST / PALLET CONFIRMATION</h1>
     
     <!-- Removed Scan Section -->
@@ -132,6 +143,7 @@
         <button id="clearButton" class="action-button">Clear</button>
     </div>
 
+    <script src="/js/picklist-toggle.js"></script>
     <script src="/js/constants.js"></script>
     <script src="/js/warehouse.js"></script>
 </body>

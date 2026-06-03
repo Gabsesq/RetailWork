@@ -7,6 +7,17 @@
     <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
+    <div class="template-toggle">
+        <div class="toggle-container">
+            <span class="template-label">Retail</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="modeToggle" aria-label="Switch between Retail and Warehouse">
+                <span class="toggle-slider"></span>
+            </label>
+            <span class="template-label">Warehouse</span>
+        </div>
+    </div>
+
     <h1 class="header">RETAIL PICKLIST / PALLET CONFIRMATION</h1>
     <div class="order-info">
         <div class="info-row">
@@ -51,6 +62,7 @@
         <button id="clearButton" class="action-button">Clear</button>
     </div>
 
+    <script src="/js/picklist-toggle.js"></script>
     <script src="/js/constants.js"></script>
     <script src="/js/retail.js"></script>
 </body>
