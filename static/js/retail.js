@@ -150,7 +150,7 @@ function processSkuRow(skuTd, scannedValue) {
         return;
     }
 
-    const existingRow = findSkuRow(skuName);
+    const existingRow = findMergeTargetRow(tr, skuName);
     if (existingRow) {
         const countCell = existingRow.children[4];
         const nextCount = (parseInt(countCell.textContent, 10) || 0) + 1;

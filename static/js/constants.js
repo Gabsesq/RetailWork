@@ -190,6 +190,26 @@ function findSkuRow(skuName) {
     return null;
 }
 
+function findSkuRowAbove(currentTr, skuName) {
+    const rows = Array.from(document.querySelectorAll('#excel-table tr'));
+    const idx = rows.indexOf(currentTr);
+    for (let i = 0; i < idx; i++) {
+        const text = getSkuCellText(rows[i].children[0]).trim();
+        if (text && skuNamesMatch(text, skuName)) {
+            return rows[i];
+        }
+    }
+    return null;
+}
+
+function findMergeTargetRow(currentTr, skuName) {
+    const above = findSkuRowAbove(currentTr, skuName);
+    if (above) return above;
+    const match = findSkuRow(skuName);
+    if (match && match !== currentTr) return match;
+    return null;
+}
+
 function looksLikeProductName(value) {
     const v = (value || '').trim();
     if (!v) return false;
@@ -232,10 +252,6 @@ function isQuantityPrefixBarcode(value) {
     return digits.length === 13 && digits.startsWith('1') && digits.substring(1).startsWith('8');
 }
 
-// Plain <input> — scanner types digits in like any other app. "Process" = convert
-// barcode to SKU name, update count, fill lot dropdown (you don't press anything).
-window.picklistScanBusy = false;
-
 function createSkuInput(skuTd, onScanComplete, options) {
     const allowNameScans = options && options.allowNameScans;
     const input = document.createElement('input');
@@ -246,49 +262,44 @@ function createSkuInput(skuTd, onScanComplete, options) {
     input.setAttribute('autocapitalize', 'off');
     input.setAttribute('spellcheck', 'false');
 
-    let finishTimer;
-
-    const runOnce = () => {
-        if (window.picklistScanBusy) return;
-
+    const finishScan = () => {
         const value = input.value.trim();
         if (!value) return;
-
-        window.picklistScanBusy = true;
         const snapshot = value;
         input.value = '';
-
-        try {
-            onScanComplete(snapshot);
-        } finally {
-            setTimeout(() => {
-                window.picklistScanBusy = false;
-            }, 200);
-        }
+        onScanComplete(snapshot);
     };
 
     input.addEventListener('input', () => {
-        clearTimeout(finishTimer);
-        const digits = extractScanDigits(input.value);
-        // Numeric UPC only — name labels are finished on Enter/Tab (avoids partial "Edi-STRESS").
-        if (isCompleteBarcodeScan(digits)) {
-            finishTimer = setTimeout(runOnce, 100);
+        const value = input.value.trim();
+        if (!value || isQuantityPrefixBarcode(value)) return;
+
+        const tr = skuTd.parentElement;
+        const skuName = resolveSkuFromInput(value);
+        if (!skuName) return;
+
+        // Same SKU on a row above (no leading 1) → bump count and clear this line immediately.
+        if (findSkuRowAbove(tr, skuName)) {
+            finishScan();
+            return;
+        }
+
+        if (isCompleteBarcodeScan(extractScanDigits(value))) {
+            finishScan();
         }
     });
 
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === 'Tab') {
             e.preventDefault();
-            clearTimeout(finishTimer);
-            runOnce();
+            finishScan();
         }
     });
 
     if (allowNameScans) {
         input.addEventListener('blur', () => {
-            clearTimeout(finishTimer);
             if (input.value.trim()) {
-                runOnce();
+                finishScan();
             }
         });
     }

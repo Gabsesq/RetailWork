@@ -201,7 +201,7 @@ function processSkuRow(skuTd, scannedValue) {
             return;
         }
 
-        const existingRow = findSkuRow(skuName);
+        const existingRow = findMergeTargetRow(tr, skuName);
         if (existingRow) {
             if (!existingRow.children[1].querySelector('select')) {
                 setupWarehouseSkuRow(existingRow, existingRow.children[0], skuName);
