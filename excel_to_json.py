@@ -3,80 +3,61 @@ from openpyxl import load_workbook
 import os
 from datetime import datetime, timedelta
 
-def process_block(ws, lot_codes, sku_col, lot_col, bb_col, start_row=3):
-    row = start_row
-    empty_count = 0
-    while empty_count < 6:
-        sku = ws.cell(row=row, column=sku_col).value
-        if sku and str(sku).strip().lower() not in ["", "total"]:
-            sku = str(sku).strip()
-            print(f"Found SKU: {sku} at row {row} (col {sku_col})")
+EXCEL_PATH = r"C:\Users\GabbyEsquibel\Pet Releaf\Warehouse - Documents\NEW WH Locations 2026.xlsx"
+SHEET_NAME = "Master Location List"
+SKU_COL = 9   # Column I
+LOT_COL = 13  # Column M
+BB_COL = 14   # Column N
+
+
+def format_bb_date(bb):
+    """Normalize Excel best-by values to YYYY-MM-DD strings."""
+    if not bb:
+        return ""
+
+    if isinstance(bb, datetime):
+        return bb.strftime('%Y-%m-%d')
+
+    if hasattr(bb, 'strftime') and not isinstance(bb, datetime):
+        # Excel sometimes stores midnight-only values as time objects.
+        return ""
+
+    if isinstance(bb, (int, float)):
+        try:
+            excel_epoch = datetime(1900, 1, 1)
+            date_obj = excel_epoch + timedelta(days=bb - 2)
+            return date_obj.strftime('%Y-%m-%d')
+        except (ValueError, OverflowError):
+            return str(bb)
+
+    bb_str = str(bb)
+    if " 00:00:00" in bb_str:
+        bb_str = bb_str.replace(" 00:00:00", "")
+    return bb_str
+
+
+def process_warehouse_locations(ws, lot_codes, start_row=2):
+    """Read warehouse lot rows from Master Location List (SKU/Lot/BB columns)."""
+    for row in range(start_row, ws.max_row + 1):
+        sku = ws.cell(row=row, column=SKU_COL).value
+        lot = ws.cell(row=row, column=LOT_COL).value
+
+        if not sku or str(sku).strip().lower() in ("", "sku"):
+            continue
+
+        sku = str(sku).strip()
+        if not lot or str(lot).strip().lower() in ("", "lot #"):
+            continue
+
+        lot = str(lot).strip()
+        bb_str = format_bb_date(ws.cell(row=row, column=BB_COL).value)
+
+        if sku not in lot_codes:
             lot_codes[sku] = {}
-            lot_row = row
-            # Skip blank cells in lot_col after SKU
-            while True:
-                lot = ws.cell(row=lot_row, column=lot_col).value
-                if lot and str(lot).strip().lower() not in ["", "total"]:
-                    break
-                if not lot or str(lot).strip().lower() == "total":
-                    print(f"Hit 'Total' or empty at row {lot_row} for SKU {sku} (no lots found)")
-                    lot_row += 1
-                    break
-                lot_row += 1
-            # Now process lots as before
-            while True:
-                lot = ws.cell(row=lot_row, column=lot_col).value
-                if not lot or str(lot).strip().lower() == "total":
-                    print(f"Hit 'Total' or empty at row {lot_row} for SKU {sku}")
-                    lot_row += 1  # Move past the 'Total' row
-                    break
-                lot = str(lot).strip()
-                bb = ws.cell(row=lot_row, column=bb_col).value
-                if bb:
-                    # Debug: print the type and value to understand what we're dealing with
-                    print(f"    DEBUG: BB value type: {type(bb)}, value: {bb}")
-                    
-                    # Handle different data types more robustly
-                    if hasattr(bb, 'strftime'):  # It's a datetime object
-                        bb_str = bb.strftime('%Y-%m-%d')
-                    elif isinstance(bb, (int, float)):  # It's a number (Excel date serial)
-                        # Convert Excel date serial to string
-                        try:
-                            excel_epoch = datetime(1900, 1, 1)
-                            date_obj = excel_epoch + timedelta(days=bb-2)  # -2 for Excel's leap year bug
-                            bb_str = date_obj.strftime('%Y-%m-%d')
-                        except:
-                            bb_str = str(bb)
-                    else:
-                        # Try to convert to string, but handle potential issues
-                        try:
-                            bb_str = str(bb)
-                            # If it contains time (00:00:00), remove it
-                            if " 00:00:00" in bb_str:
-                                bb_str = bb_str.replace(" 00:00:00", "")
-                        except:
-                            bb_str = f"Error: {type(bb).__name__}"
-                else:
-                    bb_str = ""
-                
-                # Store lot info with BB date
-                lot_info = {
-                    "bb_date": bb_str
-                }
-                
-                print(f"  Adding lot {lot} with BB date {bb_str}")
-                lot_codes[sku][lot] = lot_info
-                lot_row += 1
-            row = lot_row  # Move to the row after "Total"
-            empty_count = 0  # Reset empty counter after finding a SKU
-        else:
-            row += 1
-            empty_cell = ws.cell(row=row, column=sku_col).value
-            if not empty_cell or str(empty_cell).strip() == "":
-                empty_count += 1
-                print(f"  Empty cell at row {row}, empty_count={empty_count}")
-            else:
-                empty_count = 0
+
+        if lot not in lot_codes[sku]:
+            lot_codes[sku][lot] = {"bb_date": bb_str}
+            print(f"  Adding lot {lot} for {sku} (BB: {bb_str})")
 
 
 def load_existing_json():
@@ -191,24 +172,20 @@ def compare_and_print_new_lots(existing_data, new_data):
 
 
 def convert_excel_to_json():
-    excel_path = r"C:\Users\GabbyEsquibel\Pet Releaf\Warehouse - Documents\Current Lot Code Data.xlsx"  # Use local file for testing
-    wb = load_workbook(excel_path)
-    ws = wb.active
+    wb = load_workbook(EXCEL_PATH, data_only=True)
+    if SHEET_NAME not in wb.sheetnames:
+        raise ValueError(f"Sheet '{SHEET_NAME}' not found in {EXCEL_PATH}")
+
+    ws = wb[SHEET_NAME]
 
     # Load existing data first
     existing_data = load_existing_json()
     
     lot_codes = {}
-    # First block: A-F (1-6)
-    process_block(ws, lot_codes, sku_col=1, lot_col=2, bb_col=6, start_row=3)
-    # Second block: I-N (9-14)
-    process_block(ws, lot_codes, sku_col=9, lot_col=10, bb_col=14, start_row=3)
-    # Third block: Q-V (17-22)
-    process_block(ws, lot_codes, sku_col=17, lot_col=18, bb_col=22, start_row=3)
-    # Fourth block: Y-AD (25-30)
-    process_block(ws, lot_codes, sku_col=25, lot_col=26, bb_col=30, start_row=3)
+    print(f"Reading warehouse lots from '{SHEET_NAME}'...")
+    process_warehouse_locations(ws, lot_codes)
 
-    print("Finished processing all SKUs in all blocks.")
+    print(f"Finished processing warehouse lots ({len(lot_codes)} SKUs).")
     
     # Compare and print new lots
     compare_and_print_new_lots(existing_data, lot_codes)
