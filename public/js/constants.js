@@ -243,7 +243,6 @@ function handleSkuScan(skuTd, scannedValue, config, scanOptions) {
             config.clearScanRow(tr);
         }
 
-        focusNextEmptySkuCell();
         config.onAfterScan();
         return;
     }
@@ -259,7 +258,6 @@ function handleSkuScan(skuTd, scannedValue, config, scanOptions) {
             setSkuCellText(skuTd, skuName);
         }
 
-        focusNextEmptySkuCell();
         config.onAfterScan();
         return;
     }
@@ -280,7 +278,6 @@ function handleSkuScan(skuTd, scannedValue, config, scanOptions) {
         config.clearScanRow(tr);
     }
 
-    focusNextEmptySkuCell();
     config.onAfterScan();
 }
 
@@ -295,6 +292,18 @@ function isPartialBarcodeOnly(value) {
     return false;
 }
 
+function canCommitWarehouseSku(value) {
+    const v = (value || '').trim();
+    if (!v) return false;
+    if (isCompleteBarcodeScan(extractScanDigits(v))) return true;
+    if (isPartialBarcodeOnly(v)) return false;
+    if (/[A-Za-z]/.test(v)) {
+        if (v.includes('-')) return v.length >= 8;
+        return v.length >= 3;
+    }
+    return true;
+}
+
 function createSkuInput(skuTd, onScanComplete, options) {
     const allowNameScans = options && options.allowNameScans;
     const input = document.createElement('input');
@@ -307,15 +316,13 @@ function createSkuInput(skuTd, onScanComplete, options) {
     input.setAttribute('spellcheck', 'false');
 
     let scanLock = false;
-    let nameScanTimer;
 
     const finish = () => {
         if (scanLock) return;
 
         const value = input.value.trim();
         if (!value) return;
-
-        clearTimeout(nameScanTimer);
+        if (allowNameScans && !canCommitWarehouseSku(value)) return;
 
         const tr = skuTd.parentElement;
         const scanRowWasEmpty = !isPicklistRowCommitted(tr);
@@ -335,31 +342,18 @@ function createSkuInput(skuTd, onScanComplete, options) {
     };
 
     input.addEventListener('input', () => {
-        clearTimeout(nameScanTimer);
         const value = input.value.trim();
         if (!value) return;
 
+        // Only auto-finish full 12-digit barcodes. Names wait for Enter (scanner sends Enter at end).
         if (isCompleteBarcodeScan(extractScanDigits(value))) {
             finish();
-            return;
         }
-
-        if (!allowNameScans) return;
-        if (isPartialBarcodeOnly(value)) return;
-
-        // Scanner types char-by-char: wait until typing stops (do not finish at 6 letters).
-        nameScanTimer = setTimeout(() => {
-            if (scanLock) return;
-            const v = input.value.trim();
-            if (!v || isPartialBarcodeOnly(v)) return;
-            finish();
-        }, 280);
     });
 
     input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === 'Tab') {
+        if (e.key === 'Enter') {
             e.preventDefault();
-            clearTimeout(nameScanTimer);
             finish();
         }
     });
