@@ -154,10 +154,19 @@ function focusSkuCell(skuTd) {
     skuTd.focus();
 }
 
+function resolveSkuNameFromText(text) {
+    const v = (text || '').trim();
+    if (!v) return null;
+
+    const digits = extractScanDigits(v);
+    if (digits.length === 12 && digits.startsWith('8')) {
+        return SKUMAP[digits] || null;
+    }
+
+    return v;
+}
+
 // Leading "1" = always a new line (same product, different lot).
-// - "1" + 12-digit UPC (scanner)
-// - "1" + name like "1TS-Edi-STRESS-Pepp" or "1 TS-Edi..." (typed or scanned)
-// Does NOT match SKUs that start with 1 such as "100-DR-HO".
 function parseSkuInput(inputValue) {
     const v = (inputValue || '').trim();
     if (!v) return { skuName: null, forceNewLine: false };
@@ -167,26 +176,26 @@ function parseSkuInput(inputValue) {
     if (digits.length === 13 && digits.startsWith('1') && digits.substring(1).startsWith('8')) {
         const barcode = digits.substring(1);
         return {
-            skuName: SKUMAP[barcode] || null,
+            skuName: SKUMAP[barcode] || resolveSkuNameFromText(barcode),
             forceNewLine: true
         };
     }
 
     if (/^1[A-Za-z]/.test(v)) {
         const name = v.substring(1).trim();
-        return { skuName: name || null, forceNewLine: true };
+        return { skuName: resolveSkuNameFromText(name), forceNewLine: true };
     }
 
-    if (/^1\s+[A-Za-z-]/.test(v)) {
-        const name = v.replace(/^1\s+/, '').trim();
-        return { skuName: name || null, forceNewLine: true };
+    if (/^1[\s-]+[A-Za-z]/.test(v)) {
+        const name = v.replace(/^1[\s-]+/, '').trim();
+        return { skuName: resolveSkuNameFromText(name), forceNewLine: true };
     }
 
     if (digits.length === 12 && digits.startsWith('8')) {
         return { skuName: SKUMAP[digits] || null, forceNewLine: false };
     }
 
-    return { skuName: v, forceNewLine: false };
+    return { skuName: resolveSkuNameFromText(v), forceNewLine: false };
 }
 
 function resolveSkuFromInput(inputValue) {
@@ -206,35 +215,37 @@ function skuNamesMatch(left, right) {
     return normalizeSkuName(a) === normalizeSkuName(b);
 }
 
-function findSkuRow(skuName) {
-    for (const row of document.querySelectorAll('#excel-table tr')) {
+function findSkuRowMostRecent(skuName, excludeTr) {
+    const rows = Array.from(document.querySelectorAll('#excel-table tr'));
+    let found = null;
+
+    for (const row of rows) {
+        if (row === excludeTr) continue;
         const text = getSkuCellText(row.children[0]).trim();
-        if (!text) continue;
-        if (skuNamesMatch(text, skuName)) {
-            return row;
+        if (text && skuNamesMatch(text, skuName)) {
+            found = row;
         }
     }
-    return null;
+    return found;
 }
 
+// Among rows above the current line, use the bottom-most match.
 function findSkuRowAbove(currentTr, skuName) {
     const rows = Array.from(document.querySelectorAll('#excel-table tr'));
     const idx = rows.indexOf(currentTr);
+    let found = null;
+
     for (let i = 0; i < idx; i++) {
         const text = getSkuCellText(rows[i].children[0]).trim();
         if (text && skuNamesMatch(text, skuName)) {
-            return rows[i];
+            found = rows[i];
         }
     }
-    return null;
+    return found;
 }
 
 function findMergeTargetRow(currentTr, skuName) {
-    const above = findSkuRowAbove(currentTr, skuName);
-    if (above) return above;
-    const match = findSkuRow(skuName);
-    if (match && match !== currentTr) return match;
-    return null;
+    return findSkuRowMostRecent(skuName, currentTr);
 }
 
 function looksLikeProductName(value) {
@@ -318,12 +329,33 @@ function createSkuInput(skuTd, onScanComplete, options) {
     input.setAttribute('spellcheck', 'false');
 
     const finishScan = () => {
-        const value = input.value.trim();
+        let value = input.value.trim();
+
+        if (input.dataset.pendingPrefixOne === '1') {
+            delete input.dataset.pendingPrefixOne;
+            if (!value) return;
+            if (!value.startsWith('1')) {
+                value = '1' + value;
+            }
+        }
+
         if (!value) return;
+
         const snapshot = value;
         input.value = '';
         onScanComplete(snapshot);
     };
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === '1' && !input.value && input.selectionStart === 0) {
+            input.dataset.pendingPrefixOne = '1';
+        }
+
+        if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault();
+            finishScan();
+        }
+    });
 
     input.addEventListener('input', () => {
         const value = input.value.trim();
@@ -352,13 +384,6 @@ function createSkuInput(skuTd, onScanComplete, options) {
         }
 
         if (allowNameScans && shouldFinishNameScan(value)) {
-            finishScan();
-        }
-    });
-
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === 'Tab') {
-            e.preventDefault();
             finishScan();
         }
     });
