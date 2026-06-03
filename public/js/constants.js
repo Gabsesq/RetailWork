@@ -1,7 +1,3 @@
-// const BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-//     ? 'http://127.0.0.1:5000'
-//     : 'https://retailpr-f15aaf777d4b.herokuapp.com';
-
 const SKUMAP = {
     "860009592568": "Post-Bio-GH",
     "860009592551": "Omega-Alg",
@@ -46,86 +42,57 @@ const SKUMAP = {
     "860008221971": "SK-PW-RL",
 };
 
-window.LOT_CODES = {}; // Will be populated from JSON
+window.LOT_CODES = {};
+window.picklistNextScanNewLine = false;
 
-// Shared utility functions
 function normalizeSkuName(sku) {
     if (!sku) return '';
-    // Convert to uppercase and remove all spaces and special characters
     let normalized = sku.toUpperCase().replace(/[\s&-]/g, '');
-    // Special case for 2in1
-    if (normalized === '2IN1SKCT') {
-        normalized = '2 IN 1-SK-CT';
-    }
-    // Special case for TS-Itchy-Dry
-    if (normalized === 'TSITCHYDRYSHAMPOO') {
-        normalized = 'TS-ITCHY&DRYSHAMPOO';
-    }
+    if (normalized === '2IN1SKCT') normalized = '2 IN 1-SK-CT';
+    if (normalized === 'TSITCHYDRYSHAMPOO') normalized = 'TS-ITCHY&DRYSHAMPOO';
     return normalized;
 }
 
 async function loadLotCodes() {
     try {
         const response = await fetch('/js/lot_codes.json');
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         window.LOT_CODES = await response.json();
-        console.log("Successfully loaded lot codes:", Object.keys(window.LOT_CODES).length);
         return true;
     } catch (error) {
-        console.error("Error loading lot codes:", error);
+        console.error('Error loading lot codes:', error);
         return false;
     }
 }
 
-// Make updateLotOptions a global function
 window.updateLotOptions = function(select, sku) {
     if (!window.LOT_CODES || Object.keys(window.LOT_CODES).length === 0) {
-        console.error("Lot codes not loaded properly");
-        // Try to reload lot codes
-        loadLotCodes().then(() => {
-            // Retry updating options after reload
-            updateLotOptions(select, sku);
-        });
+        loadLotCodes().then(() => updateLotOptions(select, sku));
         return;
     }
 
-    console.log("\nUpdating lot options for:", sku);
-    console.log("Available lot codes:", Object.keys(window.LOT_CODES).length);
-    
-    select.innerHTML = "";
-    select.appendChild(new Option("", ""));
-    
+    select.innerHTML = '';
+    select.appendChild(new Option('', ''));
+
     if (!sku) return;
-    
+
     let skuName = sku;
     if (sku.length === 12 && sku.startsWith('8')) {
         skuName = SKUMAP[sku] || sku;
-        console.log("Converted barcode to SKU name:", skuName);
     }
-    
+
     const normalizedInputSku = normalizeSkuName(skuName);
-    console.log("Normalized SKU:", normalizedInputSku);
-    
-    const matchingSku = Object.keys(window.LOT_CODES).find(key => 
+    const matchingSku = Object.keys(window.LOT_CODES).find(key =>
         normalizeSkuName(key) === normalizedInputSku
     );
-    
-    console.log("Matching SKU found:", matchingSku);
-    
+
     if (matchingSku && window.LOT_CODES[matchingSku]) {
-        const sortedLots = Object.keys(window.LOT_CODES[matchingSku]).sort();
-        console.log("Available lots with BB dates:");
-        sortedLots.forEach(lot => {
-            const bbDate = window.LOT_CODES[matchingSku][lot].bb_date;
-            console.log(`  ${lot}: ${bbDate}`);
+        Object.keys(window.LOT_CODES[matchingSku]).sort().forEach(lot => {
             select.appendChild(new Option(lot, lot));
         });
     }
 };
 
-// Strip scanner suffix noise (Enter, tabs, etc.)
 function extractScanDigits(text) {
     return (text || '').replace(/\D/g, '');
 }
@@ -147,11 +114,8 @@ function setSkuCellText(skuTd, text) {
 
 function focusSkuCell(skuTd) {
     const input = skuTd.querySelector('input.sku-input');
-    if (input) {
-        input.focus();
-        return;
-    }
-    skuTd.focus();
+    if (input) input.focus();
+    else skuTd.focus();
 }
 
 function resolveSkuFromInput(inputValue) {
@@ -162,10 +126,8 @@ function resolveSkuFromInput(inputValue) {
     if (digits.length === 12 && digits.startsWith('8')) {
         return SKUMAP[digits] || null;
     }
-
     const v = (inputValue || '').trim();
-    if (!v) return null;
-    return v;
+    return v || null;
 }
 
 function skuRowMatchesName(row, skuName) {
@@ -175,7 +137,6 @@ function skuRowMatchesName(row, skuName) {
     return normalizeSkuName(text) === normalized || text === skuName;
 }
 
-// Bottom-most row with this SKU (for +count on repeat scans).
 function findSkuRow(skuName, currentTr) {
     const rows = Array.from(document.querySelectorAll('#excel-table tr'));
     let found = null;
@@ -201,23 +162,8 @@ function findEmptySkuRow() {
     return null;
 }
 
-function shouldMergeSkuScan() {
-    return !(window.PicklistLotMode && PicklistLotMode.isNewLot());
-}
-
-function clearPicklistRow(tr) {
-    Array.from(tr.children).forEach(cell => {
-        if (cell.querySelector('select')) {
-            cell.innerHTML = '<select><option value=""></option></select>';
-        } else {
-            cell.textContent = '';
-        }
-    });
-}
-
 function focusNextEmptySkuCell() {
-    const rows = document.querySelectorAll('#excel-table tr');
-    for (const row of rows) {
+    for (const row of document.querySelectorAll('#excel-table tr')) {
         const skuCell = row.children[0];
         if (skuCell && !getSkuCellText(skuCell).trim()) {
             focusSkuCell(skuCell);
@@ -228,14 +174,78 @@ function focusNextEmptySkuCell() {
 
 function isCompleteBarcodeScan(value) {
     const v = extractScanDigits(value);
-    if (!v) return false;
-    if (/^\d{12}$/.test(v) && v.startsWith('8')) return true;
-    if (/^\d{13}$/.test(v) && v.startsWith('1') && v.substring(1).startsWith('8')) return true;
-    return false;
+    return /^\d{12}$/.test(v) && v.startsWith('8');
 }
 
-// Plain <input> — scanner types digits in like any other app. "Process" = convert
-// barcode to SKU name, update count, fill lot dropdown (you don't press anything).
+function setNewLineHintVisible(visible) {
+    const btn = document.getElementById('newLineBtn');
+    const hint = document.getElementById('newLineHint');
+    if (btn) btn.classList.toggle('active', visible);
+    if (hint) hint.hidden = !visible;
+}
+
+function armNextScanAsNewLine() {
+    window.picklistNextScanNewLine = true;
+    setNewLineHintVisible(true);
+    focusNextEmptySkuCell();
+}
+
+// One scan handler for retail + warehouse.
+function handleSkuScan(skuTd, scannedValue, config) {
+    const tr = skuTd.parentElement;
+    const inputValue = (scannedValue !== undefined ? scannedValue : getSkuCellText(skuTd)).trim();
+
+    if (!inputValue) {
+        if (config.onClearRow) config.onClearRow(tr, skuTd);
+        return;
+    }
+
+    const skuName = resolveSkuFromInput(inputValue);
+    if (!skuName) return;
+
+    const scanRowEmpty = !getSkuCellText(skuTd).trim();
+    const existingRow = findSkuRow(skuName, tr);
+    const forceNewLine = window.picklistNextScanNewLine;
+    if (forceNewLine) {
+        window.picklistNextScanNewLine = false;
+        setNewLineHintVisible(false);
+    }
+
+    if (existingRow && scanRowEmpty && !forceNewLine) {
+        const countCell = existingRow.children[config.countCol];
+        countCell.textContent = String((parseInt(countCell.textContent, 10) || 0) + 1);
+
+        if (existingRow !== tr) {
+            config.clearScanRow(tr);
+        } else {
+            setSkuCellText(skuTd, skuName);
+        }
+
+        focusNextEmptySkuCell();
+        config.onAfterScan();
+        return;
+    }
+
+    let targetTr = tr;
+    let targetSkuTd = skuTd;
+    if (!scanRowEmpty) {
+        const emptyRow = findEmptySkuRow();
+        if (emptyRow) {
+            targetTr = emptyRow;
+            targetSkuTd = emptyRow.children[0];
+        }
+    }
+
+    config.setupRow(targetTr, targetSkuTd, skuName);
+
+    if (targetTr !== tr) {
+        config.clearScanRow(tr);
+    }
+
+    focusNextEmptySkuCell();
+    config.onAfterScan();
+}
+
 function createSkuInput(skuTd, onScanComplete) {
     const input = document.createElement('input');
     input.type = 'text';
@@ -245,39 +255,24 @@ function createSkuInput(skuTd, onScanComplete) {
     input.setAttribute('autocapitalize', 'off');
     input.setAttribute('spellcheck', 'false');
 
-    let finishTimer;
-    let scanLock = false;
-
-    const runOnce = () => {
-        if (scanLock) return;
-
+    const finish = () => {
         const value = input.value.trim();
         if (!value) return;
-
-        scanLock = true;
         const snapshot = value;
         input.value = '';
-
         onScanComplete(snapshot);
-
-        setTimeout(() => {
-            scanLock = false;
-        }, 350);
     };
 
     input.addEventListener('input', () => {
-        clearTimeout(finishTimer);
-        const digits = extractScanDigits(input.value);
-        if (isCompleteBarcodeScan(digits)) {
-            finishTimer = setTimeout(runOnce, 100);
+        if (isCompleteBarcodeScan(extractScanDigits(input.value))) {
+            finish();
         }
     });
 
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === 'Tab') {
             e.preventDefault();
-            clearTimeout(finishTimer);
-            runOnce();
+            finish();
         }
     });
 
@@ -285,186 +280,61 @@ function createSkuInput(skuTd, onScanComplete) {
     skuTd.dataset.scanBound = '1';
 }
 
-// Shared functionality
 function checkForEmptyRow() {
-    const tbody = document.getElementById("excel-table");
-    const rows = tbody.getElementsByTagName("tr");
-    
-    // Don't add new rows if we already have plenty
-    if (rows.length >= 50) return;  // Set a reasonable maximum
-    
-    const lastRow = rows[rows.length - 1];
+    const tbody = document.getElementById('excel-table');
+    if (!tbody || tbody.rows.length >= 50) return;
+
+    const lastRow = tbody.rows[tbody.rows.length - 1];
     let hasContent = false;
-    Array.from(lastRow.children).forEach((cell, idx) => {
-        if (cell.querySelector('select')) {
-            if (cell.querySelector('select').value) hasContent = true;
-        } else if (idx === 0) {
-            if (getSkuCellText(cell).trim()) hasContent = true;
-        } else if (cell.textContent.trim()) {
-            if (cell !== lastRow.children[2] || cell.textContent.trim() !== "EA") {
-                hasContent = true;
-            }
-        }
+
+    Array.from(lastRow.cells).forEach((cell, idx) => {
+        if (cell.querySelector('select')?.value) hasContent = true;
+        else if (idx === 0 && getSkuCellText(cell).trim()) hasContent = true;
+        else if (cell.textContent.trim()) hasContent = true;
     });
 
-    if (hasContent) {
-        const newRow = createRow();
-        tbody.appendChild(newRow);
+    if (hasContent && window.createPicklistRow) {
+        tbody.appendChild(window.createPicklistRow());
     }
 }
 
-function addCountCellListeners() {
-    const tbody = document.getElementById("excel-table");
-    const rows = tbody.getElementsByTagName("tr");
-    
-    Array.from(rows).forEach(row => {
-        const countCell = row.children[3]; // CNT1/COUNT column
-        countCell.addEventListener('input', () => {
-            updateTotals();
-        });
-    });
-}
-
-// Add required class handling for SO number
 document.querySelector('.so-number-box')?.addEventListener('input', function() {
     if (this.textContent.trim()) {
         this.classList.remove('required');
     }
 });
 
-// Add these functions to constants.js
-function saveState() {
-    const tbody = document.getElementById("excel-table");
-    if (!tbody) return;
-
-    const orderInfo = document.querySelectorAll('.order-info [contenteditable]');
-    const tableFooter = document.querySelectorAll('.table-footer [contenteditable]');
-    
-    const state = {
-        tableHtml: tbody.innerHTML,
-        orderInfo: Array.from(orderInfo).map(el => ({
-            id: el.className,
-            content: el.textContent
-        })),
-        tableFooter: Array.from(tableFooter).map(el => ({
-            path: getElementPath(el),
-            content: el.textContent
-        })),
-        timestamp: new Date().getTime()
-    };
-    
-    localStorage.setItem('picklistState', JSON.stringify(state));
-}
-
-function restoreState() {
-    const savedState = localStorage.getItem('picklistState');
-    if (!savedState) return;
-    
-    try {
-        const state = JSON.parse(savedState);
-        // Only restore if the state is less than 8 hours old
-        if (new Date().getTime() - state.timestamp < 8 * 60 * 60 * 1000) {
-            const tbody = document.getElementById("excel-table");
-            tbody.innerHTML = state.tableHtml;
-            
-            // Restore order info
-            state.orderInfo.forEach(item => {
-                const el = document.querySelector(`.${item.id}`);
-                if (el) el.textContent = item.content;
-            });
-            
-            // Restore table footer
-            state.tableFooter.forEach(item => {
-                const el = document.querySelector(item.path);
-                if (el) el.textContent = item.content;
-            });
-            
-            // Reattach event listeners (restored HTML drops listeners)
-            addCountCellListeners();
-            if (window.reattachSkuListeners) window.reattachSkuListeners();
-            if (window.addFormattingToExistingCells) window.addFormattingToExistingCells();
-            if (window.addUmCellListeners) addUmCellListeners();
-            if (window.addPalletCellListeners) addPalletCellListeners();
-        } else {
-            localStorage.removeItem('picklistState');
-        }
-    } catch (error) {
-        console.error('Error restoring state:', error);
-    }
-}
-
-// Helper function to get unique element path
-function getElementPath(el) {
-    const path = [];
-    while (el && el.nodeType === Node.ELEMENT_NODE) {
-        let selector = el.nodeName.toLowerCase();
-        if (el.id) {
-            selector += "#" + el.id;
-        } else {
-            let sib = el, nth = 1;
-            while (sib.previousElementSibling) {
-                sib = sib.previousElementSibling;
-                nth++;
-            }
-            selector += ":nth-child(" + nth + ")";
-        }
-        path.unshift(selector);
-        el = el.parentNode;
-    }
-    return path.join(" > ");
-}
-
 window.picklistAllowUnload = false;
 
 function picklistHasProgress() {
     if (window.picklistAllowUnload) return false;
 
-    const tbody = document.getElementById('excel-table');
-    if (tbody) {
-        for (const row of tbody.querySelectorAll('tr')) {
-            const skuCell = row.children[0];
-            if (skuCell && getSkuCellText(skuCell).trim()) return true;
-
-            const lotCell = row.children[1];
-            if (lotCell) {
-                const lotSelect = lotCell.querySelector('select');
-                if (lotSelect && lotSelect.value) return true;
-                if ((lotCell.textContent || '').trim()) return true;
-            }
-        }
+    for (const row of document.querySelectorAll('#excel-table tr')) {
+        if (getSkuCellText(row.children[0]).trim()) return true;
+        const lotSelect = row.children[1]?.querySelector('select');
+        if (lotSelect?.value) return true;
     }
 
-    const soNumber = document.querySelector('.so-number-box');
-    if (soNumber && soNumber.textContent.trim()) return true;
+    if (document.querySelector('.so-number-box')?.textContent.trim()) return true;
 
-    for (const el of document.querySelectorAll('.order-info [contenteditable]')) {
-        if (el.textContent.trim()) return true;
-    }
-
-    for (const el of document.querySelectorAll('.table-footer [contenteditable]')) {
+    for (const el of document.querySelectorAll('.order-info [contenteditable], .table-footer [contenteditable]')) {
         if (el.textContent.trim()) return true;
     }
 
     return false;
 }
 
-// Skip reload/leave warning (e.g. after Clear).
 window.allowLeavePicklist = function() {
     window.picklistAllowUnload = true;
 };
 
 window.addEventListener('beforeunload', function(e) {
     if (!picklistHasProgress()) return;
-
     e.preventDefault();
     e.returnValue = '';
 });
 
-window.addEventListener('online', function() {
-    console.log('Network connection restored');
-    loadLotCodes(); // Reload lot codes when connection is restored
+document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('newLineBtn');
+    if (btn) btn.addEventListener('click', armNextScanAsNewLine);
 });
-
-window.addEventListener('offline', function() {
-    console.log('Network connection lost');
-}); 

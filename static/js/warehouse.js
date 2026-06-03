@@ -1,344 +1,128 @@
-// At the top of warehouse.js
 window.renderTable = renderTable;
+window.createPicklistRow = createRow;
 
-// Load data when the page is loaded
 window.onload = async () => {
-    try {
-        await loadLotCodes();
-        renderTable();
-    } catch (error) {
-        console.error('Error initializing warehouse:', error);
-    }
+    await loadLotCodes();
+    renderTable();
 };
 
 function renderTable() {
-    try {
-        const tbody = document.getElementById("excel-table");
-        if (!tbody) {
-            console.error('Could not find excel-table element');
-            return;
-        }
-        
-        tbody.innerHTML = "";
+    const tbody = document.getElementById('excel-table');
+    if (!tbody) return;
 
-        // Add initial rows
-        const minRows = 13;
-        for (let i = 0; i < minRows; i++) {
-            tbody.appendChild(createRow());
-        }
-        
-        updateTotals();
-    } catch (error) {
-        console.error('Error rendering table:', error);
+    tbody.innerHTML = '';
+    for (let i = 0; i < 13; i++) {
+        tbody.appendChild(createRow());
     }
+    updateTotals();
 }
 
 function createRow() {
-    const tr = document.createElement("tr");
-    
-    // SKU cell
-    const skuTd = document.createElement("td");
-    createSkuInput(skuTd, (scannedValue) => processSkuRow(skuTd, scannedValue));
+    const tr = document.createElement('tr');
+
+    const skuTd = document.createElement('td');
+    createSkuInput(skuTd, (value) => processSkuRow(skuTd, value));
     tr.appendChild(skuTd);
-    
-    // LOT cell
-    const lotTd = document.createElement("td");
+
+    const lotTd = document.createElement('td');
     lotTd.contentEditable = true;
     tr.appendChild(lotTd);
-    
-    // U/M cell
-    const umTd = document.createElement("td");
+
+    const umTd = document.createElement('td');
     umTd.contentEditable = true;
     tr.appendChild(umTd);
-    
-    // CNT1 cell
-    const countTd = document.createElement("td");
+
+    const countTd = document.createElement('td');
     countTd.contentEditable = true;
-    countTd.addEventListener("input", handleCountInput);
-    countTd.addEventListener("keydown", handleCountKeydown);
+    countTd.addEventListener('input', () => updateTotals());
     tr.appendChild(countTd);
-    
-    // PALLET 1 cell
-    const pallet1Td = document.createElement("td");
+
+    const pallet1Td = document.createElement('td');
     pallet1Td.contentEditable = true;
     tr.appendChild(pallet1Td);
-    
-    // PALLET 2 cell
-    const pallet2Td = document.createElement("td");
+
+    const pallet2Td = document.createElement('td');
     pallet2Td.contentEditable = true;
     tr.appendChild(pallet2Td);
-    
+
     return tr;
 }
 
-function handleCountKeydown(event) {
-    try {
-        // Allow: backspace, delete, tab, escape, enter, numbers
-        const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'Escape', 'ArrowLeft', 'ArrowRight'];
-        const isNumber = /[0-9]/.test(event.key);
-        
-        if (!allowedKeys.includes(event.key) && !isNumber) {
-            event.preventDefault();
-            return false;
+function clearWarehouseScanRow(tr) {
+    Array.from(tr.children).forEach((cell, idx) => {
+        if (idx === 0) {
+            setSkuCellText(cell, '');
+        } else {
+            cell.textContent = '';
+            cell.contentEditable = true;
         }
-
-        // If it's backspace or delete, schedule an update
-        if (event.key === 'Backspace' || event.key === 'Delete') {
-            setTimeout(() => {
-                validateAndUpdateCount(event.target);
-            }, 0);
-        }
-    } catch (error) {
-        console.error('Error handling count keydown:', error);
-    }
-}
-
-function handleCountInput(event) {
-    try {
-        validateAndUpdateCount(event.target);
-    } catch (error) {
-        console.error('Error handling count input:', error);
-    }
-}
-
-function validateAndUpdateCount(countCell) {
-    try {
-        const tr = countCell.parentElement;
-        const skuCell = tr.children[0];
-        
-        // If there's no SKU, don't allow count
-        if (!getSkuCellText(skuCell).trim()) {
-            countCell.textContent = '';
-            updateTotals();
-            return;
-        }
-
-        let count = countCell.textContent.trim();
-        
-        // Remove any non-numeric characters
-        count = count.replace(/[^0-9]/g, '');
-        
-        // Convert to number and validate
-        let numCount = parseInt(count);
-        
-        // If count is not a valid number or is 0, reset to 1 or empty
-        if (isNaN(numCount) || numCount === 0) {
-            if (getSkuCellText(skuCell).trim()) {
-                numCount = 1;
-            } else {
-                numCount = '';
-            }
-        }
-        
-        // Update the cell with the validated count
-        countCell.textContent = numCount;
-        
-        // Update totals
-        updateTotals();
-    } catch (error) {
-        console.error('Error validating count:', error);
-    }
-}
-
-window.reattachSkuListeners = function() {
-    document.querySelectorAll('#excel-table tr').forEach(tr => {
-        const skuTd = tr.children[0];
-        if (!skuTd || skuTd.dataset.scanBound === '1') return;
-        createSkuInput(skuTd, (scannedValue) => processSkuRow(skuTd, scannedValue));
     });
-};
+}
+
+function setupWarehouseRow(tr, skuTd, skuName) {
+    setSkuCellText(skuTd, skuName);
+
+    tr.children[2].textContent = 'CS';
+
+    const lotSelect = document.createElement('select');
+    lotSelect.appendChild(new Option('', ''));
+    lotSelect.addEventListener('change', () => {
+        tr.children[2].textContent = 'CS';
+    });
+
+    const lotCell = tr.children[1];
+    lotCell.innerHTML = '';
+    lotCell.appendChild(lotSelect);
+    lotCell.contentEditable = false;
+    updateLotOptions(lotSelect, skuName);
+
+    tr.children[3].textContent = '1';
+}
 
 function processSkuRow(skuTd, scannedValue) {
-    try {
-        const tr = skuTd.parentElement;
-        const raw = scannedValue !== undefined ? scannedValue : getSkuCellText(skuTd);
-        const inputValue = raw.trim();
-
-        if (!inputValue) {
-            Array.from(tr.children).forEach(cell => {
-                if (cell === skuTd) {
-                    setSkuCellText(cell, '');
-                } else {
-                    cell.textContent = '';
-                    if (cell.querySelector('select')) {
-                        cell.innerHTML = '';
-                        cell.contentEditable = true;
-                    }
-                }
-            });
+    handleSkuScan(skuTd, scannedValue, {
+        countCol: 3,
+        setupRow: setupWarehouseRow,
+        clearScanRow: clearWarehouseScanRow,
+        onClearRow: (tr, cell) => {
+            clearWarehouseScanRow(tr);
             updateTotals();
-            return;
-        }
-
-        const skuName = resolveSkuFromInput(inputValue);
-        if (!skuName) return;
-
-        if (!shouldMergeSkuScan()) {
-            let targetTr = tr;
-            let targetSkuTd = skuTd;
-
-            if (getSkuCellText(skuTd).trim()) {
-                const emptyRow = findEmptySkuRow();
-                if (emptyRow) {
-                    targetTr = emptyRow;
-                    targetSkuTd = emptyRow.children[0];
-                }
-            }
-
-            setSkuCellText(targetSkuTd, skuName);
-            const lotCell = targetTr.children[1];
-            const umCell = targetTr.children[2];
-            umCell.textContent = 'CS';
-
-            const lotSelect = document.createElement('select');
-            lotSelect.appendChild(new Option('', ''));
-            lotSelect.addEventListener('change', handleLotSelection);
-            lotCell.innerHTML = '';
-            lotCell.appendChild(lotSelect);
-            lotCell.contentEditable = false;
-            updateLotOptions(lotSelect, skuName);
-
-            const countCell = targetTr.children[3];
-            countCell.textContent = '1';
-            validateAndUpdateCount(countCell);
-
-            if (targetTr !== tr) {
-                setSkuCellText(skuTd, '');
-                Array.from(tr.children).forEach((cell, idx) => {
-                    if (idx === 0) return;
-                    cell.textContent = '';
-                    if (cell.querySelector('select')) {
-                        cell.innerHTML = '';
-                        cell.contentEditable = true;
-                    }
-                });
-            }
-
-            focusNextEmptySkuCell();
-
-            const allRows = Array.from(document.querySelectorAll('#excel-table tr'));
-            const hasEmptyRow = allRows.some(row => !getSkuCellText(row.children[0]).trim());
-            if (!hasEmptyRow) {
-                document.getElementById('excel-table').appendChild(createRow());
-            }
-
+        },
+        onAfterScan: () => {
             updateTotals();
-            return;
+            checkForEmptyRow();
         }
-
-        const existingRow = findSkuRow(skuName, tr);
-        if (existingRow) {
-            const countCell = existingRow.children[3];
-            countCell.textContent = String((parseInt(countCell.textContent, 10) || 0) + 1);
-
-            if (existingRow !== tr) {
-                setSkuCellText(skuTd, '');
-                Array.from(tr.children).forEach((cell, idx) => {
-                    if (idx === 0) return;
-                    cell.textContent = '';
-                    if (cell.querySelector('select')) {
-                        cell.innerHTML = '';
-                        cell.contentEditable = true;
-                    }
-                });
-            } else {
-                setSkuCellText(skuTd, skuName);
-            }
-
-            focusNextEmptySkuCell();
-            updateTotals();
-            return;
-        }
-
-        setSkuCellText(skuTd, skuName);
-        const lotCell = tr.children[1];
-        const umCell = tr.children[2];
-        umCell.textContent = "CS";
-
-        const lotSelect = document.createElement("select");
-        lotSelect.appendChild(new Option("", ""));
-        lotSelect.addEventListener("change", handleLotSelection);
-        lotCell.innerHTML = '';
-        lotCell.appendChild(lotSelect);
-        lotCell.contentEditable = false;
-        updateLotOptions(lotSelect, skuName);
-
-        const countCell = tr.children[3];
-        if (!countCell.textContent) {
-            countCell.textContent = "1";
-        }
-
-        validateAndUpdateCount(countCell);
-
-        const allRows = Array.from(document.querySelectorAll('#excel-table tr'));
-        const hasEmptyRow = allRows.some(row => !getSkuCellText(row.children[0]).trim());
-        if (!hasEmptyRow) {
-            document.getElementById('excel-table').appendChild(createRow());
-        }
-
-        updateTotals();
-    } catch (error) {
-        console.error('Error handling SKU input:', error);
-    }
-}
-
-function handleLotSelection(event) {
-    try {
-        const select = event.target;
-        const tr = select.closest("tr");
-        const umCell = tr.children[2];
-        umCell.textContent = "CS";
-    } catch (error) {
-        console.error('Error handling lot selection:', error);
-    }
+    });
 }
 
 function updateTotals() {
-    try {
-        const tbody = document.getElementById("excel-table");
-        const rows = tbody.getElementsByTagName("tr");
-        let total = 0;
-        let pallet1Total = 0;
-        let pallet2Total = 0;
-        
-        Array.from(rows).forEach(row => {
-            const skuCell = row.children[0];
-            const countCell = row.children[3];
-            const pallet1Cell = row.children[4];
-            const pallet2Cell = row.children[5];
-            
-            // Only count if there's a valid SKU
-            if (getSkuCellText(skuCell).trim()) {
-                const count = parseInt(countCell.textContent) || 0;
-                total += count;
-                
-                if (pallet1Cell.textContent.trim()) {
-                    pallet1Total += count;
-                }
-                if (pallet2Cell.textContent.trim()) {
-                    pallet2Total += count;
-                }
-            }
-        });
-        
-        // Update totals
-        const totalElements = {
-            shipped: document.querySelector('.totals div:first-child span'),
-            confirmed: document.querySelector('.totals div:last-child span'),
-            pallet1: document.querySelector('.signatures div div:first-child span'),
-            pallet2: document.querySelector('.signatures div div:last-child span')
-        };
-        
-        if (totalElements.shipped) totalElements.shipped.textContent = total;
-        if (totalElements.confirmed) totalElements.confirmed.textContent = total;
-        if (totalElements.pallet1) totalElements.pallet1.textContent = pallet1Total;
-        if (totalElements.pallet2) totalElements.pallet2.textContent = pallet2Total;
-    } catch (error) {
-        console.error('Error updating totals:', error);
-    }
+    const tbody = document.getElementById('excel-table');
+    if (!tbody) return;
+
+    let total = 0;
+    let pallet1Total = 0;
+    let pallet2Total = 0;
+
+    Array.from(tbody.rows).forEach(row => {
+        if (!getSkuCellText(row.children[0]).trim()) return;
+
+        const count = parseInt(row.children[3].textContent, 10) || 0;
+        total += count;
+        if (row.children[4].textContent.trim()) pallet1Total += count;
+        if (row.children[5].textContent.trim()) pallet2Total += count;
+    });
+
+    const shipped = document.querySelector('.totals div:first-child span');
+    const confirmed = document.querySelector('.totals div:last-child span');
+    const pallet1 = document.querySelector('.signatures div div:first-child span');
+    const pallet2 = document.querySelector('.signatures div div:last-child span');
+
+    if (shipped) shipped.textContent = total;
+    if (confirmed) confirmed.textContent = total;
+    if (pallet1) pallet1.textContent = pallet1Total;
+    if (pallet2) pallet2.textContent = pallet2Total;
 }
 
-// Replace the initializeButtons function with direct event listeners
 document.getElementById('printButton').addEventListener('click', async function() {
     const soNumberBox = document.querySelector('.so-number-box');
     const soNumber = soNumberBox.textContent.trim();
@@ -350,45 +134,39 @@ document.getElementById('printButton').addEventListener('click', async function(
     }
     soNumberBox.classList.remove('required');
 
-    // Gather table data
-    const rows = document.querySelectorAll('#excel-table tr');
-    for (const row of rows) {
+    for (const row of document.querySelectorAll('#excel-table tr')) {
         const cells = row.children;
-        const sku = cells[0]?.textContent.trim();
-        const lotCode = cells[1]?.textContent.trim();
-        const quantity = cells[4]?.textContent.trim() || cells[3]?.textContent.trim();
-        const unit = cells[3]?.textContent.trim() || cells[2]?.textContent.trim();
-        if (sku && lotCode) {
-            await fetch('/api/lots', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    soNumber,
-                    sku,
-                    lotCode,
-                    quantity,
-                    unit,
-                    template: 'warehouse'
-                })
-            });
-        }
+        const sku = getSkuCellText(cells[0]).trim();
+        const lotSelect = cells[1].querySelector('select');
+        const lotCode = lotSelect ? lotSelect.value : cells[1].textContent.trim();
+        if (!sku || !lotCode) continue;
+
+        await fetch('/api/lots', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                soNumber,
+                sku,
+                lotCode,
+                quantity: cells[3].textContent.trim(),
+                unit: cells[2].textContent.trim(),
+                template: 'warehouse'
+            })
+        });
     }
     window.print();
 });
 
 document.getElementById('clearButton').addEventListener('click', function() {
-    if (confirm('Are you sure you want to clear all entries? This cannot be undone.')) {
-        if (window.allowLeavePicklist) allowLeavePicklist();
-        document.querySelectorAll('.order-info [contenteditable]').forEach(element => {
-            element.textContent = '';
-        });
-        
-        const tbody = document.getElementById('excel-table');
-        tbody.innerHTML = '';
-        localStorage.removeItem('picklistState');
-        if (window.PicklistLotMode) {
-            PicklistLotMode.setMode(PicklistLotMode.SAME_LOT);
-        }
-        renderTable();
-    }
-}); 
+    if (!confirm('Clear all entries? This cannot be undone.')) return;
+
+    allowLeavePicklist();
+    window.picklistNextScanNewLine = false;
+    setNewLineHintVisible(false);
+
+    document.querySelectorAll('.order-info [contenteditable]').forEach(el => {
+        el.textContent = '';
+    });
+
+    renderTable();
+});

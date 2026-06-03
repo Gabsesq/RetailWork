@@ -1,93 +1,52 @@
-// Load data when the page is loaded
+window.renderTable = renderTable;
+window.createPicklistRow = createRow;
+
 window.onload = async () => {
     await loadLotCodes();
     renderTable();
-    addFormattingToExistingCells();
 };
 
-window.renderTable = renderTable;
-
 function renderTable() {
-    const tbody = document.getElementById("excel-table");
-    tbody.innerHTML = "";
+    const tbody = document.getElementById('excel-table');
+    tbody.innerHTML = '';
 
-    const minRows = 13;
-    for (let i = 0; i < minRows; i++) {
+    for (let i = 0; i < 13; i++) {
         tbody.appendChild(createRow());
     }
-
-    addCountCellListeners();
 }
 
 function createRow() {
-    const tr = document.createElement("tr");
+    const tr = document.createElement('tr');
 
-    const skuTd = document.createElement("td");
-    createSkuInput(skuTd, (scannedValue) => processSkuRow(skuTd, scannedValue));
+    const skuTd = document.createElement('td');
+    createSkuInput(skuTd, (value) => processSkuRow(skuTd, value));
     tr.appendChild(skuTd);
 
-    const lotTd = document.createElement("td");
-    const lotSelect = document.createElement("select");
-    lotSelect.appendChild(new Option("", ""));
-    lotSelect.addEventListener("change", handleLotSelection);
+    const lotTd = document.createElement('td');
+    const lotSelect = document.createElement('select');
+    lotSelect.appendChild(new Option('', ''));
+    lotSelect.addEventListener('change', handleLotSelection);
     lotTd.appendChild(lotSelect);
     tr.appendChild(lotTd);
 
-    const bbTd = document.createElement("td");
+    const bbTd = document.createElement('td');
     bbTd.contentEditable = true;
-    addCellFormatting(bbTd);
     tr.appendChild(bbTd);
 
-    const umTd = document.createElement("td");
+    const umTd = document.createElement('td');
     umTd.contentEditable = true;
-    addCellFormatting(umTd);
     tr.appendChild(umTd);
 
-    const countTd = document.createElement("td");
+    const countTd = document.createElement('td');
     countTd.contentEditable = true;
-    addCellFormatting(countTd);
     tr.appendChild(countTd);
 
     return tr;
 }
 
-function addCellFormatting(cell) {
-    cell.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-        }
-    });
-
-    cell.addEventListener('paste', (e) => {
-        e.preventDefault();
-        const text = (e.clipboardData || window.clipboardData).getData('text');
-        const normalizedText = text.replace(/\s+/g, ' ').trim();
-        document.execCommand('insertText', false, normalizedText);
-    });
-
-    cell.addEventListener('blur', () => {
-        const normalizedText = cell.textContent.replace(/\s+/g, ' ').trim();
-        cell.textContent = normalizedText;
-    });
-}
-
-function addFormattingToExistingCells() {
-    document.querySelectorAll('[contenteditable="true"]').forEach(cell => {
-        addCellFormatting(cell);
-    });
-}
-
-window.reattachSkuListeners = function() {
-    document.querySelectorAll('#excel-table tr').forEach(tr => {
-        const skuTd = tr.children[0];
-        if (!skuTd || skuTd.dataset.scanBound === '1') return;
-        createSkuInput(skuTd, (scannedValue) => processSkuRow(skuTd, scannedValue));
-    });
-};
-
 function shouldUseSet(sku) {
     const upperSku = sku.toUpperCase();
-    return upperSku.startsWith("DB") || upperSku.startsWith("PR-INT-CS");
+    return upperSku.startsWith('DB') || upperSku.startsWith('PR-INT-CS');
 }
 
 function clearRetailScanRow(tr) {
@@ -106,18 +65,16 @@ function clearRetailScanRow(tr) {
     });
 }
 
-function setupNewRetailRow(tr, skuTd, skuName) {
+function setupRetailRow(tr, skuTd, skuName) {
     setSkuCellText(skuTd, skuName);
 
     const umCell = tr.children[3];
-    if (skuName.toUpperCase().startsWith("WH")) {
-        umCell.textContent = "CS";
-    } else {
-        umCell.textContent = shouldUseSet(skuName) ? "Set" : "EA";
-    }
+    umCell.textContent = skuName.toUpperCase().startsWith('WH')
+        ? 'CS'
+        : (shouldUseSet(skuName) ? 'Set' : 'EA');
 
     const lotCell = tr.children[1];
-    if (skuName.toUpperCase().startsWith("WH")) {
+    if (skuName.toUpperCase().startsWith('WH')) {
         lotCell.innerHTML = '';
         lotCell.contentEditable = true;
     } else {
@@ -130,79 +87,32 @@ function setupNewRetailRow(tr, skuTd, skuName) {
         updateLotOptions(lotSelect, skuName);
     }
 
-    const countCell = tr.children[4];
-    if (!countCell.textContent) {
-        countCell.textContent = "1";
-    }
+    tr.children[4].textContent = '1';
 }
 
 function processSkuRow(skuTd, scannedValue) {
-    const tr = skuTd.parentElement;
-    const raw = scannedValue !== undefined ? scannedValue : getSkuCellText(skuTd);
-    const skuName = resolveSkuFromInput(raw);
-
-    if (!skuName) return;
-
-    if (!shouldMergeSkuScan()) {
-        let targetTr = tr;
-        let targetSkuTd = skuTd;
-
-        if (getSkuCellText(skuTd).trim()) {
-            const emptyRow = findEmptySkuRow();
-            if (emptyRow) {
-                targetTr = emptyRow;
-                targetSkuTd = emptyRow.children[0];
-            }
-        }
-
-        setupNewRetailRow(targetTr, targetSkuTd, skuName);
-
-        if (targetTr !== tr) {
-            clearRetailScanRow(tr);
-        }
-
-        focusNextEmptySkuCell();
-        checkForEmptyRow();
-        return;
-    }
-
-    const existingRow = findSkuRow(skuName, tr);
-    if (existingRow) {
-        const countCell = existingRow.children[4];
-        const nextCount = (parseInt(countCell.textContent, 10) || 0) + 1;
-        countCell.textContent = String(nextCount);
-
-        if (existingRow !== tr) {
-            clearRetailScanRow(tr);
-        } else {
-            setSkuCellText(skuTd, skuName);
-        }
-
-        focusNextEmptySkuCell();
-        checkForEmptyRow();
-        return;
-    }
-
-    setupNewRetailRow(tr, skuTd, skuName);
-    checkForEmptyRow();
+    handleSkuScan(skuTd, scannedValue, {
+        countCol: 4,
+        setupRow: setupRetailRow,
+        clearScanRow: clearRetailScanRow,
+        onClearRow: (tr) => clearRetailScanRow(tr),
+        onAfterScan: checkForEmptyRow
+    });
 }
 
 function handleLotSelection(event) {
     const select = event.target;
-    const tr = select.closest("tr");
-    const selectedLot = select.value;
+    const tr = select.closest('tr');
     const skuName = getSkuCellText(tr.children[0]).trim();
     const bbCell = tr.children[2];
-
-    const normalizedInputSku = normalizeSkuName(skuName);
     const matchingSku = Object.keys(LOT_CODES).find(key =>
-        normalizeSkuName(key) === normalizedInputSku
+        normalizeSkuName(key) === normalizeSkuName(skuName)
     );
 
-    if (selectedLot && matchingSku && LOT_CODES[matchingSku] && LOT_CODES[matchingSku][selectedLot]) {
-        bbCell.textContent = LOT_CODES[matchingSku][selectedLot].bb_date;
+    if (select.value && matchingSku && LOT_CODES[matchingSku]?.[select.value]) {
+        bbCell.textContent = LOT_CODES[matchingSku][select.value].bb_date;
     } else {
-        bbCell.textContent = "";
+        bbCell.textContent = '';
     }
 }
 
@@ -217,45 +127,39 @@ document.getElementById('printButton').addEventListener('click', async function(
     }
     soNumberBox.classList.remove('required');
 
-    const rows = document.querySelectorAll('#excel-table tr');
-    for (const row of rows) {
+    for (const row of document.querySelectorAll('#excel-table tr')) {
         const cells = row.children;
         const sku = getSkuCellText(cells[0]).trim();
         const lotSelect = cells[1].querySelector('select');
         const lotCode = lotSelect ? lotSelect.value : cells[1].textContent.trim();
-        const quantity = cells[4]?.textContent.trim();
-        const unit = cells[3]?.textContent.trim();
-        if (sku && lotCode) {
-            await fetch('/api/lots', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    soNumber,
-                    sku,
-                    lotCode,
-                    quantity,
-                    unit,
-                    template: 'retail'
-                })
-            });
-        }
+        if (!sku || !lotCode) continue;
+
+        await fetch('/api/lots', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                soNumber,
+                sku,
+                lotCode,
+                quantity: cells[4].textContent.trim(),
+                unit: cells[3].textContent.trim(),
+                template: 'retail'
+            })
+        });
     }
     window.print();
 });
 
 document.getElementById('clearButton').addEventListener('click', function() {
-    if (confirm('Are you sure you want to clear all entries? This cannot be undone.')) {
-        if (window.allowLeavePicklist) allowLeavePicklist();
-        document.querySelectorAll('.order-info [contenteditable]').forEach(element => {
-            element.textContent = '';
-        });
+    if (!confirm('Clear all entries? This cannot be undone.')) return;
 
-        const tbody = document.getElementById("excel-table");
-        tbody.innerHTML = '';
-        localStorage.removeItem('picklistState');
-        if (window.PicklistLotMode) {
-            PicklistLotMode.setMode(PicklistLotMode.SAME_LOT);
-        }
-        renderTable();
-    }
+    allowLeavePicklist();
+    window.picklistNextScanNewLine = false;
+    setNewLineHintVisible(false);
+
+    document.querySelectorAll('.order-info [contenteditable]').forEach(el => {
+        el.textContent = '';
+    });
+
+    renderTable();
 });

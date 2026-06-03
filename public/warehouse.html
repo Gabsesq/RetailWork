@@ -84,12 +84,9 @@
 
     <h1 class="header">WAREHOUSE PICKLIST / PALLET CONFIRMATION</h1>
 
-    <div class="lot-mode-bar" id="lotModeBar">
-        <div class="lot-mode-buttons">
-            <button type="button" id="sameLotBtn" class="lot-mode-btn active">Add count</button>
-            <button type="button" id="newLotBtn" class="lot-mode-btn">New line</button>
-        </div>
-        <p class="lot-mode-banner" id="newLotBanner" hidden>Next scans start a new line.</p>
+    <div class="picklist-actions">
+        <button type="button" id="newLineBtn" class="picklist-new-line-btn">+ New line</button>
+        <span class="picklist-hint" id="newLineHint" hidden>Next scan starts a new row</span>
     </div>
 
     <div class="order-info">
@@ -150,7 +147,6 @@
     </div>
 
     <script src="/js/picklist-toggle.js"></script>
-    <script src="/js/picklist-lot-mode.js"></script>
     <script src="/js/constants.js"></script>
     <script src="/js/warehouse.js"></script>
 </body>

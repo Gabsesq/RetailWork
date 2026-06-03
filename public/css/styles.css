@@ -177,49 +177,35 @@ tr:nth-child(even) td select {
     color: white;
 }
 
-.lot-mode-bar {
-    margin: 0 0 12px;
-    padding: 12px;
-    border: 1px solid #ccc;
-    background: #f9f9f9;
-    text-align: center;
-}
-
-.lot-mode-bar--new-lot {
-    border-color: #e67e22;
-    background: #fff4e6;
-}
-
-.lot-mode-buttons {
+.picklist-actions {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 12px;
+    margin: 0 0 12px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    background: #f9f9f9;
 }
 
-.lot-mode-btn {
-    padding: 12px 18px;
+.picklist-new-line-btn {
+    padding: 12px 20px;
     font-size: 15px;
     font-weight: bold;
     border: 2px solid #333;
     border-radius: 8px;
     background: #fff;
-    color: #333;
     cursor: pointer;
 }
 
-.lot-mode-btn.active {
-    background: #333;
+.picklist-new-line-btn.active {
+    background: #d35400;
+    border-color: #d35400;
     color: #fff;
 }
 
-.lot-mode-bar--new-lot .lot-mode-btn.active#newLotBtn {
-    background: #d35400;
-    border-color: #d35400;
-}
-
-.lot-mode-banner {
-    margin: 10px 0 0;
+.picklist-hint {
     font-size: 14px;
     font-weight: bold;
     color: #b45309;
@@ -293,7 +279,7 @@ tr:nth-child(even) td select {
 }
 
 @media print {
-    .home-link, .button-container, .template-toggle, .lot-mode-bar {
+    .home-link, .button-container, .template-toggle, .picklist-actions {
         display: none;
     }
     
