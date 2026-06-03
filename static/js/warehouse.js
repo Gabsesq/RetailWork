@@ -2,6 +2,7 @@ window.renderTable = renderTable;
 window.createPicklistRow = createRow;
 
 window.onload = async () => {
+    clearPicklistStorage();
     await loadLotCodes();
     renderTable();
 };
@@ -82,6 +83,7 @@ function setupWarehouseRow(tr, skuTd, skuName) {
 function processSkuRow(skuTd, scannedValue) {
     handleSkuScan(skuTd, scannedValue, {
         countCol: 3,
+        allowAnyScan: true,
         setupRow: setupWarehouseRow,
         clearScanRow: clearWarehouseScanRow,
         onClearRow: (tr, cell) => {
@@ -159,14 +161,5 @@ document.getElementById('printButton').addEventListener('click', async function(
 
 document.getElementById('clearButton').addEventListener('click', function() {
     if (!confirm('Clear all entries? This cannot be undone.')) return;
-
-    allowLeavePicklist();
-    window.picklistNextScanNewLine = false;
-    setNewLineHintVisible(false);
-
-    document.querySelectorAll('.order-info [contenteditable]').forEach(el => {
-        el.textContent = '';
-    });
-
-    renderTable();
+    window.resetPicklistPage();
 });

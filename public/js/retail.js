@@ -2,6 +2,7 @@ window.renderTable = renderTable;
 window.createPicklistRow = createRow;
 
 window.onload = async () => {
+    clearPicklistStorage();
     await loadLotCodes();
     renderTable();
 };
@@ -152,14 +153,5 @@ document.getElementById('printButton').addEventListener('click', async function(
 
 document.getElementById('clearButton').addEventListener('click', function() {
     if (!confirm('Clear all entries? This cannot be undone.')) return;
-
-    allowLeavePicklist();
-    window.picklistNextScanNewLine = false;
-    setNewLineHintVisible(false);
-
-    document.querySelectorAll('.order-info [contenteditable]').forEach(el => {
-        el.textContent = '';
-    });
-
-    renderTable();
+    window.resetPicklistPage();
 });

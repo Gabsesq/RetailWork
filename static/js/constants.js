@@ -118,16 +118,20 @@ function focusSkuCell(skuTd) {
     else skuTd.focus();
 }
 
-function resolveSkuFromInput(inputValue) {
-    const digits = extractScanDigits(inputValue);
+function resolveSkuFromInput(inputValue, allowAnyScan) {
+    const v = (inputValue || '').trim();
+    if (!v) return null;
+
+    const digits = extractScanDigits(v);
     if (digits.length === 13 && digits.startsWith('1') && digits.substring(1).startsWith('8')) {
-        return SKUMAP[digits.substring(1)] || null;
+        const barcode = digits.substring(1);
+        return SKUMAP[barcode] || (allowAnyScan ? v : null);
     }
     if (digits.length === 12 && digits.startsWith('8')) {
-        return SKUMAP[digits] || null;
+        return SKUMAP[digits] || (allowAnyScan ? v : null);
     }
-    const v = (inputValue || '').trim();
-    return v || null;
+
+    return v;
 }
 
 function skuRowMatchesName(row, skuName) {
@@ -200,7 +204,7 @@ function handleSkuScan(skuTd, scannedValue, config) {
         return;
     }
 
-    const skuName = resolveSkuFromInput(inputValue);
+    const skuName = resolveSkuFromInput(inputValue, config.allowAnyScan);
     if (!skuName) return;
 
     const scanRowEmpty = !getSkuCellText(skuTd).trim();
@@ -246,12 +250,20 @@ function handleSkuScan(skuTd, scannedValue, config) {
     config.onAfterScan();
 }
 
-function looksLikeWarehouseName(value) {
+// Wait for full 12/13-digit UPC; otherwise finish (123, SNT30, TS-Edi-..., etc.).
+function isBuildingLongBarcode(value) {
+    const digits = extractScanDigits(value);
+    if (!digits || !/^\d+$/.test(digits)) return false;
+    if (digits.startsWith('8') && digits.length < 12) return true;
+    if (digits.startsWith('1') && digits.length > 1 && digits.length < 13) return true;
+    return false;
+}
+
+function shouldFinishWarehouseScan(value) {
     const v = (value || '').trim();
-    if (!v || /^\d+$/.test(v)) return false;
-    if (!/[A-Za-z]/.test(v)) return false;
-    if (v.includes('-')) return v.length >= 6;
-    return v.length >= 3;
+    if (!v) return false;
+    if (isCompleteBarcodeScan(extractScanDigits(v))) return true;
+    return !isBuildingLongBarcode(v);
 }
 
 function createSkuInput(skuTd, onScanComplete, options) {
@@ -260,6 +272,7 @@ function createSkuInput(skuTd, onScanComplete, options) {
     input.type = 'text';
     input.className = 'sku-input';
     input.setAttribute('autocomplete', 'off');
+    input.setAttribute('name', 'sku-' + Date.now() + '-' + Math.random().toString(36).slice(2));
     input.setAttribute('autocorrect', 'off');
     input.setAttribute('autocapitalize', 'off');
     input.setAttribute('spellcheck', 'false');
@@ -278,7 +291,7 @@ function createSkuInput(skuTd, onScanComplete, options) {
             finish();
             return;
         }
-        if (allowNameScans && looksLikeWarehouseName(value)) {
+        if (allowNameScans && shouldFinishWarehouseScan(value)) {
             finish();
         }
     });
@@ -293,8 +306,7 @@ function createSkuInput(skuTd, onScanComplete, options) {
     if (allowNameScans) {
         input.addEventListener('blur', () => {
             const value = input.value.trim();
-            if (!value) return;
-            if (isCompleteBarcodeScan(extractScanDigits(value)) || looksLikeWarehouseName(value)) {
+            if (shouldFinishWarehouseScan(value)) {
                 finish();
             }
         });
@@ -358,7 +370,40 @@ window.addEventListener('beforeunload', function(e) {
     e.returnValue = '';
 });
 
+function clearPicklistStorage() {
+    try {
+        localStorage.removeItem('picklistState');
+        sessionStorage.removeItem('picklistState');
+    } catch (e) {
+        // ignore private mode / storage errors
+    }
+}
+
+// Handheld browsers often restore the whole page from cache (bfcache) with old table data.
+window.resetPicklistPage = function() {
+    clearPicklistStorage();
+    window.picklistAllowUnload = true;
+    window.picklistNextScanNewLine = false;
+    setNewLineHintVisible(false);
+
+    document.querySelectorAll('.order-info [contenteditable], .table-footer [contenteditable]').forEach(el => {
+        el.textContent = '';
+    });
+
+    if (typeof window.renderTable === 'function') {
+        window.renderTable();
+    }
+};
+
+window.addEventListener('pageshow', function(event) {
+    clearPicklistStorage();
+    if (event.persisted) {
+        window.resetPicklistPage();
+    }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
+    clearPicklistStorage();
     const btn = document.getElementById('newLineBtn');
     if (btn) btn.addEventListener('click', armNextScanAsNewLine);
 });
