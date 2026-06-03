@@ -143,6 +143,13 @@ function processSkuRow(skuTd, scannedValue) {
 
     if (!skuName) return;
 
+    if (isQuantityPrefixBarcode(raw)) {
+        setupNewRetailRow(tr, skuTd, skuName);
+        focusNextEmptySkuCell();
+        checkForEmptyRow();
+        return;
+    }
+
     const existingRow = findSkuRow(skuName);
     if (existingRow) {
         const countCell = existingRow.children[4];

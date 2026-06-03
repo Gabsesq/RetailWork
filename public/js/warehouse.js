@@ -38,7 +38,7 @@ function createRow() {
     
     // SKU cell
     const skuTd = document.createElement("td");
-    createSkuInput(skuTd, (scannedValue) => processSkuRow(skuTd, scannedValue));
+    createSkuInput(skuTd, (scannedValue) => processSkuRow(skuTd, scannedValue), { allowNameScans: true });
     tr.appendChild(skuTd);
     
     // LOT cell
@@ -144,7 +144,7 @@ window.reattachSkuListeners = function() {
     document.querySelectorAll('#excel-table tr').forEach(tr => {
         const skuTd = tr.children[0];
         if (!skuTd || skuTd.dataset.scanBound === '1') return;
-        createSkuInput(skuTd, (scannedValue) => processSkuRow(skuTd, scannedValue));
+        createSkuInput(skuTd, (scannedValue) => processSkuRow(skuTd, scannedValue), { allowNameScans: true });
     });
 };
 
@@ -172,6 +172,30 @@ function processSkuRow(skuTd, scannedValue) {
 
         const skuName = resolveSkuFromInput(inputValue);
         if (!skuName) return;
+
+        if (isQuantityPrefixBarcode(inputValue)) {
+            setSkuCellText(skuTd, skuName);
+            const lotCell = tr.children[1];
+            const umCell = tr.children[2];
+            umCell.textContent = "CS";
+
+            const lotSelect = document.createElement("select");
+            lotSelect.appendChild(new Option("", ""));
+            lotSelect.addEventListener("change", handleLotSelection);
+            lotCell.innerHTML = '';
+            lotCell.appendChild(lotSelect);
+            lotCell.contentEditable = false;
+            updateLotOptions(lotSelect, skuName);
+
+            const countCell = tr.children[3];
+            countCell.textContent = "1";
+
+            validateAndUpdateCount(countCell);
+            focusNextEmptySkuCell();
+            checkForEmptyRow();
+            updateTotals();
+            return;
+        }
 
         const existingRow = findSkuRow(skuName);
         if (existingRow) {

@@ -155,7 +155,10 @@ function focusSkuCell(skuTd) {
 }
 
 function resolveSkuFromInput(inputValue) {
-    const digits = extractScanDigits(inputValue);
+    const v = (inputValue || '').trim();
+    if (!v) return null;
+
+    const digits = extractScanDigits(v);
     if (digits.length === 13 && digits.startsWith('1') && digits.substring(1).startsWith('8')) {
         return SKUMAP[digits.substring(1)] || null;
     }
@@ -163,22 +166,35 @@ function resolveSkuFromInput(inputValue) {
         return SKUMAP[digits] || null;
     }
 
-    const v = (inputValue || '').trim();
-    if (!v) return null;
+    // Warehouse name labels and typed SKUs (not a 12-digit UPC)
     return v;
 }
 
-function findSkuRow(skuName) {
-    const normalized = normalizeSkuName(skuName);
+function skuNamesMatch(left, right) {
+    if (!left || !right) return false;
+    const a = left.trim();
+    const b = right.trim();
+    if (a.toLowerCase() === b.toLowerCase()) return true;
+    if (a === b) return true;
+    return normalizeSkuName(a) === normalizeSkuName(b);
+}
 
+function findSkuRow(skuName) {
     for (const row of document.querySelectorAll('#excel-table tr')) {
         const text = getSkuCellText(row.children[0]).trim();
         if (!text) continue;
-        if (normalizeSkuName(text) === normalized || text === skuName) {
+        if (skuNamesMatch(text, skuName)) {
             return row;
         }
     }
     return null;
+}
+
+function looksLikeProductName(value) {
+    const v = (value || '').trim();
+    if (!v) return false;
+    if (/^\d+$/.test(v)) return false;
+    return /[A-Za-z]/.test(v);
 }
 
 function clearPicklistRow(tr) {
@@ -210,9 +226,16 @@ function isCompleteBarcodeScan(value) {
     return false;
 }
 
+// Leading 1 + 12-digit UPC = new line (same SKU, different lot), do not merge count.
+function isQuantityPrefixBarcode(value) {
+    const digits = extractScanDigits(value);
+    return digits.length === 13 && digits.startsWith('1') && digits.substring(1).startsWith('8');
+}
+
 // Plain <input> — scanner types digits in like any other app. "Process" = convert
 // barcode to SKU name, update count, fill lot dropdown (you don't press anything).
-function createSkuInput(skuTd, onScanComplete) {
+function createSkuInput(skuTd, onScanComplete, options) {
+    const allowNameScans = options && options.allowNameScans;
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'sku-input';
@@ -246,6 +269,11 @@ function createSkuInput(skuTd, onScanComplete) {
         const digits = extractScanDigits(input.value);
         if (isCompleteBarcodeScan(digits)) {
             finishTimer = setTimeout(runOnce, 100);
+            return;
+        }
+        // Warehouse: scan guns often print the SKU name (not a 12-digit UPC).
+        if (allowNameScans && looksLikeProductName(input.value)) {
+            finishTimer = setTimeout(runOnce, 200);
         }
     });
 
