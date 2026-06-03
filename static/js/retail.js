@@ -23,7 +23,7 @@ function createRow() {
     const tr = document.createElement("tr");
 
     const skuTd = document.createElement("td");
-    createSkuInput(skuTd, () => processSkuRow(skuTd));
+    createSkuInput(skuTd, (scannedValue) => processSkuRow(skuTd, scannedValue));
     tr.appendChild(skuTd);
 
     const lotTd = document.createElement("td");
@@ -81,7 +81,7 @@ window.reattachSkuListeners = function() {
     document.querySelectorAll('#excel-table tr').forEach(tr => {
         const skuTd = tr.children[0];
         if (!skuTd || skuTd.dataset.scanBound === '1') return;
-        createSkuInput(skuTd, () => processSkuRow(skuTd));
+        createSkuInput(skuTd, (scannedValue) => processSkuRow(skuTd, scannedValue));
     });
 };
 
@@ -136,18 +136,25 @@ function setupNewRetailRow(tr, skuTd, skuName) {
     }
 }
 
-function processSkuRow(skuTd) {
+function processSkuRow(skuTd, scannedValue) {
     const tr = skuTd.parentElement;
-    const inputValue = getSkuCellText(skuTd);
-    const skuName = resolveSkuFromInput(inputValue);
+    const raw = scannedValue !== undefined ? scannedValue : getSkuCellText(skuTd);
+    const skuName = resolveSkuFromInput(raw);
 
     if (!skuName) return;
 
-    const existingRow = findExistingSkuRow(skuName, tr);
+    const existingRow = findSkuRow(skuName);
     if (existingRow) {
         const countCell = existingRow.children[4];
-        countCell.textContent = (parseInt(countCell.textContent, 10) || 0) + 1;
-        clearRetailScanRow(tr);
+        const nextCount = (parseInt(countCell.textContent, 10) || 0) + 1;
+        countCell.textContent = String(nextCount);
+
+        if (existingRow !== tr) {
+            clearRetailScanRow(tr);
+        } else {
+            setSkuCellText(skuTd, skuName);
+        }
+
         focusNextEmptySkuCell();
         checkForEmptyRow();
         return;
@@ -210,7 +217,6 @@ document.getElementById('printButton').addEventListener('click', async function(
             });
         }
     }
-    saveState();
     window.print();
 });
 

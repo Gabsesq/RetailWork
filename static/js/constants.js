@@ -168,12 +168,10 @@ function resolveSkuFromInput(inputValue) {
     return v;
 }
 
-function findExistingSkuRow(skuName, excludeTr) {
+function findSkuRow(skuName) {
     const normalized = normalizeSkuName(skuName);
-    const rows = Array.from(document.querySelectorAll('#excel-table tr')).reverse();
 
-    for (const row of rows) {
-        if (row === excludeTr) continue;
+    for (const row of document.querySelectorAll('#excel-table tr')) {
         const text = getSkuCellText(row.children[0]).trim();
         if (!text) continue;
         if (normalizeSkuName(text) === normalized || text === skuName) {
@@ -224,27 +222,33 @@ function createSkuInput(skuTd, onScanComplete) {
     input.setAttribute('spellcheck', 'false');
 
     let finishTimer;
-    let lastRunAt = 0;
+    let scanLock = false;
 
     const runOnce = () => {
+        if (scanLock) return;
+
         const value = input.value.trim();
         if (!value) return;
-        const now = Date.now();
-        if (now - lastRunAt < 200) return;
-        lastRunAt = now;
-        onScanComplete();
+
+        scanLock = true;
+        const snapshot = value;
+        input.value = '';
+
+        onScanComplete(snapshot);
+
+        setTimeout(() => {
+            scanLock = false;
+        }, 350);
     };
 
-    // When a full barcode is in the box (12 or 13 digits), run after scan finishes.
     input.addEventListener('input', () => {
         clearTimeout(finishTimer);
         const digits = extractScanDigits(input.value);
         if (isCompleteBarcodeScan(digits)) {
-            finishTimer = setTimeout(runOnce, 80);
+            finishTimer = setTimeout(runOnce, 100);
         }
     });
 
-    // Many scanners auto-send Enter at the end of the scan (you never touch it).
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === 'Tab') {
             e.preventDefault();

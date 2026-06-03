@@ -38,7 +38,7 @@ function createRow() {
     
     // SKU cell
     const skuTd = document.createElement("td");
-    createSkuInput(skuTd, () => processSkuRow(skuTd));
+    createSkuInput(skuTd, (scannedValue) => processSkuRow(skuTd, scannedValue));
     tr.appendChild(skuTd);
     
     // LOT cell
@@ -144,14 +144,15 @@ window.reattachSkuListeners = function() {
     document.querySelectorAll('#excel-table tr').forEach(tr => {
         const skuTd = tr.children[0];
         if (!skuTd || skuTd.dataset.scanBound === '1') return;
-        createSkuInput(skuTd, () => processSkuRow(skuTd));
+        createSkuInput(skuTd, (scannedValue) => processSkuRow(skuTd, scannedValue));
     });
 };
 
-function processSkuRow(skuTd) {
+function processSkuRow(skuTd, scannedValue) {
     try {
         const tr = skuTd.parentElement;
-        const inputValue = getSkuCellText(skuTd).trim();
+        const raw = scannedValue !== undefined ? scannedValue : getSkuCellText(skuTd);
+        const inputValue = raw.trim();
 
         if (!inputValue) {
             Array.from(tr.children).forEach(cell => {
@@ -172,19 +173,25 @@ function processSkuRow(skuTd) {
         const skuName = resolveSkuFromInput(inputValue);
         if (!skuName) return;
 
-        const existingRow = findExistingSkuRow(skuName, tr);
+        const existingRow = findSkuRow(skuName);
         if (existingRow) {
             const countCell = existingRow.children[3];
-            countCell.textContent = (parseInt(countCell.textContent, 10) || 0) + 1;
-            setSkuCellText(skuTd, '');
-            Array.from(tr.children).forEach((cell, idx) => {
-                if (idx === 0) return;
-                cell.textContent = '';
-                if (cell.querySelector('select')) {
-                    cell.innerHTML = '';
-                    cell.contentEditable = true;
-                }
-            });
+            countCell.textContent = String((parseInt(countCell.textContent, 10) || 0) + 1);
+
+            if (existingRow !== tr) {
+                setSkuCellText(skuTd, '');
+                Array.from(tr.children).forEach((cell, idx) => {
+                    if (idx === 0) return;
+                    cell.textContent = '';
+                    if (cell.querySelector('select')) {
+                        cell.innerHTML = '';
+                        cell.contentEditable = true;
+                    }
+                });
+            } else {
+                setSkuCellText(skuTd, skuName);
+            }
+
             focusNextEmptySkuCell();
             updateTotals();
             return;
@@ -211,7 +218,7 @@ function processSkuRow(skuTd) {
         validateAndUpdateCount(countCell);
 
         const allRows = Array.from(document.querySelectorAll('#excel-table tr'));
-        const hasEmptyRow = allRows.some(row => !row.children[0].textContent.trim());
+        const hasEmptyRow = allRows.some(row => !getSkuCellText(row.children[0]).trim());
         if (!hasEmptyRow) {
             document.getElementById('excel-table').appendChild(createRow());
         }
