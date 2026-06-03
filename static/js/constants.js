@@ -154,105 +154,31 @@ function focusSkuCell(skuTd) {
     skuTd.focus();
 }
 
-function resolveSkuNameFromText(text) {
-    const v = (text || '').trim();
-    if (!v) return null;
-
-    const digits = extractScanDigits(v);
+function resolveSkuFromInput(inputValue) {
+    const digits = extractScanDigits(inputValue);
+    if (digits.length === 13 && digits.startsWith('1') && digits.substring(1).startsWith('8')) {
+        return SKUMAP[digits.substring(1)] || null;
+    }
     if (digits.length === 12 && digits.startsWith('8')) {
         return SKUMAP[digits] || null;
     }
 
+    const v = (inputValue || '').trim();
+    if (!v) return null;
     return v;
 }
 
-// Leading "1" = always a new line (same product, different lot).
-function parseSkuInput(inputValue) {
-    const v = (inputValue || '').trim();
-    if (!v) return { skuName: null, forceNewLine: false };
+function findSkuRow(skuName) {
+    const normalized = normalizeSkuName(skuName);
 
-    const digits = extractScanDigits(v);
-
-    if (digits.length === 13 && digits.startsWith('1') && digits.substring(1).startsWith('8')) {
-        const barcode = digits.substring(1);
-        return {
-            skuName: SKUMAP[barcode] || resolveSkuNameFromText(barcode),
-            forceNewLine: true
-        };
-    }
-
-    if (/^1[A-Za-z]/.test(v)) {
-        const name = v.substring(1).trim();
-        return { skuName: resolveSkuNameFromText(name), forceNewLine: true };
-    }
-
-    if (/^1[\s-]+[A-Za-z]/.test(v)) {
-        const name = v.replace(/^1[\s-]+/, '').trim();
-        return { skuName: resolveSkuNameFromText(name), forceNewLine: true };
-    }
-
-    if (digits.length === 12 && digits.startsWith('8')) {
-        return { skuName: SKUMAP[digits] || null, forceNewLine: false };
-    }
-
-    return { skuName: resolveSkuNameFromText(v), forceNewLine: false };
-}
-
-function resolveSkuFromInput(inputValue) {
-    return parseSkuInput(inputValue).skuName;
-}
-
-function isQuantityPrefixScan(value) {
-    return parseSkuInput(value).forceNewLine;
-}
-
-function skuNamesMatch(left, right) {
-    if (!left || !right) return false;
-    const a = left.trim();
-    const b = right.trim();
-    if (a.toLowerCase() === b.toLowerCase()) return true;
-    if (a === b) return true;
-    return normalizeSkuName(a) === normalizeSkuName(b);
-}
-
-function findSkuRowMostRecent(skuName, excludeTr) {
-    const rows = Array.from(document.querySelectorAll('#excel-table tr'));
-    let found = null;
-
-    for (const row of rows) {
-        if (row === excludeTr) continue;
+    for (const row of document.querySelectorAll('#excel-table tr')) {
         const text = getSkuCellText(row.children[0]).trim();
-        if (text && skuNamesMatch(text, skuName)) {
-            found = row;
+        if (!text) continue;
+        if (normalizeSkuName(text) === normalized || text === skuName) {
+            return row;
         }
     }
-    return found;
-}
-
-// Among rows above the current line, use the bottom-most match.
-function findSkuRowAbove(currentTr, skuName) {
-    const rows = Array.from(document.querySelectorAll('#excel-table tr'));
-    const idx = rows.indexOf(currentTr);
-    let found = null;
-
-    for (let i = 0; i < idx; i++) {
-        const text = getSkuCellText(rows[i].children[0]).trim();
-        if (text && skuNamesMatch(text, skuName)) {
-            found = rows[i];
-        }
-    }
-    return found;
-}
-
-function findMergeTargetRow(currentTr, skuName) {
-    return findSkuRowMostRecent(skuName, currentTr);
-}
-
-function looksLikeProductName(value) {
-    const v = (value || '').trim();
-    if (!v) return false;
-    if (/^\d+$/.test(v)) return false;
-    return /[A-Za-z]/.test(v);
+    return null;
 }
 
 function clearPicklistRow(tr) {
@@ -284,42 +210,9 @@ function isCompleteBarcodeScan(value) {
     return false;
 }
 
-function isTypingPartialBarcode(value) {
-    const digits = extractScanDigits(value);
-    return digits.length > 0 && digits.length < 12 && /^\d+$/.test(digits);
-}
-
-// Warehouse name labels (e.g. TS-Edi-STRESS-Pepp) — finish row without clicking away.
-function shouldFinishNameScan(value) {
-    if (isTypingPartialBarcode(value)) return false;
-
-    const parsed = parseSkuInput(value);
-    if (parsed.forceNewLine && parsed.skuName) {
-        return parsed.skuName.includes('-') || parsed.skuName.length >= 6;
-    }
-
-    if (!looksLikeProductName(value)) return false;
-    if (value.includes('-')) return true;
-    return value.length >= 6;
-}
-
-function isReadyToFinishScan(value) {
-    const v = value.trim();
-    if (!v) return false;
-
-    const parsed = parseSkuInput(v);
-    if (parsed.forceNewLine) {
-        const digits = extractScanDigits(v);
-        if (isCompleteBarcodeScan(digits)) return true;
-        return !!(parsed.skuName && (parsed.skuName.includes('-') || parsed.skuName.length >= 6));
-    }
-
-    if (isCompleteBarcodeScan(extractScanDigits(v))) return true;
-    return shouldFinishNameScan(v);
-}
-
-function createSkuInput(skuTd, onScanComplete, options) {
-    const allowNameScans = options && options.allowNameScans;
+// Plain <input> — scanner types digits in like any other app. "Process" = convert
+// barcode to SKU name, update count, fill lot dropdown (you don't press anything).
+function createSkuInput(skuTd, onScanComplete) {
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'sku-input';
@@ -328,73 +221,41 @@ function createSkuInput(skuTd, onScanComplete, options) {
     input.setAttribute('autocapitalize', 'off');
     input.setAttribute('spellcheck', 'false');
 
-    const finishScan = () => {
-        let value = input.value.trim();
+    let finishTimer;
+    let scanLock = false;
 
-        if (input.dataset.pendingPrefixOne === '1') {
-            delete input.dataset.pendingPrefixOne;
-            if (!value) return;
-            if (!value.startsWith('1')) {
-                value = '1' + value;
-            }
-        }
+    const runOnce = () => {
+        if (scanLock) return;
 
-        if (!value) return;
-
-        const snapshot = value;
-        input.value = '';
-        onScanComplete(snapshot);
-    };
-
-    input.addEventListener('keydown', (e) => {
-        if (e.key === '1' && !input.value && input.selectionStart === 0) {
-            input.dataset.pendingPrefixOne = '1';
-        }
-
-        if (e.key === 'Enter' || e.key === 'Tab') {
-            e.preventDefault();
-            finishScan();
-        }
-    });
-
-    input.addEventListener('input', () => {
         const value = input.value.trim();
         if (!value) return;
 
-        const tr = skuTd.parentElement;
-        const parsed = parseSkuInput(value);
-        if (!parsed.skuName) return;
+        scanLock = true;
+        const snapshot = value;
+        input.value = '';
 
-        // Leading 1 = new line (never merge with row above).
-        if (parsed.forceNewLine) {
-            if (isReadyToFinishScan(value)) {
-                finishScan();
-            }
-            return;
-        }
+        onScanComplete(snapshot);
 
-        if (findSkuRowAbove(tr, parsed.skuName)) {
-            finishScan();
-            return;
-        }
+        setTimeout(() => {
+            scanLock = false;
+        }, 350);
+    };
 
-        if (isCompleteBarcodeScan(extractScanDigits(value))) {
-            finishScan();
-            return;
-        }
-
-        if (allowNameScans && shouldFinishNameScan(value)) {
-            finishScan();
+    input.addEventListener('input', () => {
+        clearTimeout(finishTimer);
+        const digits = extractScanDigits(input.value);
+        if (isCompleteBarcodeScan(digits)) {
+            finishTimer = setTimeout(runOnce, 100);
         }
     });
 
-    if (allowNameScans) {
-        input.addEventListener('blur', () => {
-            if (input.value.trim()) {
-                finishScan();
-            }
-        });
-    }
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault();
+            clearTimeout(finishTimer);
+            runOnce();
+        }
+    });
 
     skuTd.appendChild(input);
     skuTd.dataset.scanBound = '1';

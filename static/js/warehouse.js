@@ -38,7 +38,7 @@ function createRow() {
     
     // SKU cell
     const skuTd = document.createElement("td");
-    createSkuInput(skuTd, (scannedValue) => processSkuRow(skuTd, scannedValue), { allowNameScans: true });
+    createSkuInput(skuTd, (scannedValue) => processSkuRow(skuTd, scannedValue));
     tr.appendChild(skuTd);
     
     // LOT cell
@@ -144,30 +144,9 @@ window.reattachSkuListeners = function() {
     document.querySelectorAll('#excel-table tr').forEach(tr => {
         const skuTd = tr.children[0];
         if (!skuTd || skuTd.dataset.scanBound === '1') return;
-        createSkuInput(skuTd, (scannedValue) => processSkuRow(skuTd, scannedValue), { allowNameScans: true });
+        createSkuInput(skuTd, (scannedValue) => processSkuRow(skuTd, scannedValue));
     });
 };
-
-function setupWarehouseSkuRow(tr, skuTd, skuName) {
-    setSkuCellText(skuTd, skuName);
-
-    const lotCell = tr.children[1];
-    const umCell = tr.children[2];
-    const countCell = tr.children[3];
-
-    umCell.textContent = 'CS';
-
-    const lotSelect = document.createElement('select');
-    lotSelect.appendChild(new Option('', ''));
-    lotSelect.addEventListener('change', handleLotSelection);
-    lotCell.innerHTML = '';
-    lotCell.appendChild(lotSelect);
-    lotCell.contentEditable = false;
-    updateLotOptions(lotSelect, skuName);
-
-    countCell.textContent = '1';
-    updateTotals();
-}
 
 function processSkuRow(skuTd, scannedValue) {
     try {
@@ -191,23 +170,11 @@ function processSkuRow(skuTd, scannedValue) {
             return;
         }
 
-        const parsed = parseSkuInput(inputValue);
-        const skuName = parsed.skuName;
+        const skuName = resolveSkuFromInput(inputValue);
         if (!skuName) return;
 
-        if (parsed.forceNewLine) {
-            setupWarehouseSkuRow(tr, skuTd, skuName);
-            focusNextEmptySkuCell();
-            checkForEmptyRow();
-            return;
-        }
-
-        const existingRow = findMergeTargetRow(tr, skuName);
+        const existingRow = findSkuRow(skuName);
         if (existingRow) {
-            if (!existingRow.children[1].querySelector('select')) {
-                setupWarehouseSkuRow(existingRow, existingRow.children[0], skuName);
-            }
-
             const countCell = existingRow.children[3];
             countCell.textContent = String((parseInt(countCell.textContent, 10) || 0) + 1);
 
@@ -216,8 +183,13 @@ function processSkuRow(skuTd, scannedValue) {
                 Array.from(tr.children).forEach((cell, idx) => {
                     if (idx === 0) return;
                     cell.textContent = '';
-                    cell.contentEditable = true;
+                    if (cell.querySelector('select')) {
+                        cell.innerHTML = '';
+                        cell.contentEditable = true;
+                    }
                 });
+            } else {
+                setSkuCellText(skuTd, skuName);
             }
 
             focusNextEmptySkuCell();
@@ -225,7 +197,25 @@ function processSkuRow(skuTd, scannedValue) {
             return;
         }
 
-        setupWarehouseSkuRow(tr, skuTd, skuName);
+        setSkuCellText(skuTd, skuName);
+        const lotCell = tr.children[1];
+        const umCell = tr.children[2];
+        umCell.textContent = "CS";
+
+        const lotSelect = document.createElement("select");
+        lotSelect.appendChild(new Option("", ""));
+        lotSelect.addEventListener("change", handleLotSelection);
+        lotCell.innerHTML = '';
+        lotCell.appendChild(lotSelect);
+        lotCell.contentEditable = false;
+        updateLotOptions(lotSelect, skuName);
+
+        const countCell = tr.children[3];
+        if (!countCell.textContent) {
+            countCell.textContent = "1";
+        }
+
+        validateAndUpdateCount(countCell);
 
         const allRows = Array.from(document.querySelectorAll('#excel-table tr'));
         const hasEmptyRow = allRows.some(row => !getSkuCellText(row.children[0]).trim());
@@ -233,8 +223,7 @@ function processSkuRow(skuTd, scannedValue) {
             document.getElementById('excel-table').appendChild(createRow());
         }
 
-        focusNextEmptySkuCell();
-        checkForEmptyRow();
+        updateTotals();
     } catch (error) {
         console.error('Error handling SKU input:', error);
     }

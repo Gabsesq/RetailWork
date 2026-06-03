@@ -139,19 +139,11 @@ function setupNewRetailRow(tr, skuTd, skuName) {
 function processSkuRow(skuTd, scannedValue) {
     const tr = skuTd.parentElement;
     const raw = scannedValue !== undefined ? scannedValue : getSkuCellText(skuTd);
-    const parsed = parseSkuInput(raw);
-    const skuName = parsed.skuName;
+    const skuName = resolveSkuFromInput(raw);
 
     if (!skuName) return;
 
-    if (parsed.forceNewLine) {
-        setupNewRetailRow(tr, skuTd, skuName);
-        focusNextEmptySkuCell();
-        checkForEmptyRow();
-        return;
-    }
-
-    const existingRow = findMergeTargetRow(tr, skuName);
+    const existingRow = findSkuRow(skuName);
     if (existingRow) {
         const countCell = existingRow.children[4];
         const nextCount = (parseInt(countCell.textContent, 10) || 0) + 1;
