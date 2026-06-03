@@ -250,20 +250,22 @@ function handleSkuScan(skuTd, scannedValue, config) {
     config.onAfterScan();
 }
 
-// Wait for full 12/13-digit UPC; otherwise finish (123, SNT30, TS-Edi-..., etc.).
-function isBuildingLongBarcode(value) {
-    const digits = extractScanDigits(value);
-    if (!digits || !/^\d+$/.test(digits)) return false;
-    if (digits.startsWith('8') && digits.length < 12) return true;
-    if (digits.startsWith('1') && digits.length > 1 && digits.length < 13) return true;
-    return false;
-}
-
 function shouldFinishWarehouseScan(value) {
     const v = (value || '').trim();
     if (!v) return false;
     if (isCompleteBarcodeScan(extractScanDigits(v))) return true;
-    return !isBuildingLongBarcode(v);
+
+    // Names like 150-Mini-Stress-HO / 100-Lipe-Ultra (not a partial "1..." UPC).
+    if (/[A-Za-z]/.test(v)) {
+        if (v.includes('-')) return v.length >= 6;
+        return v.length >= 3;
+    }
+
+    // Numeric-only: wait for full 8… UPC; short codes like 123 finish immediately.
+    if (!/^\d+$/.test(v)) return true;
+    if (v.startsWith('8') && v.length < 12) return false;
+    if (v.startsWith('1') && v.length > 3 && v.length < 13) return false;
+    return true;
 }
 
 function createSkuInput(skuTd, onScanComplete, options) {
