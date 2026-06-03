@@ -176,6 +176,16 @@ function focusNextEmptySkuCell() {
     }
 }
 
+function isPicklistRowCommitted(tr) {
+    const sku = getSkuCellText(tr.children[0]).trim();
+    if (!sku) return false;
+    const count =
+        parseInt(tr.children[4]?.textContent, 10) ||
+        parseInt(tr.children[3]?.textContent, 10) ||
+        0;
+    return count > 0;
+}
+
 function isCompleteBarcodeScan(value) {
     const v = extractScanDigits(value);
     return /^\d{12}$/.test(v) && v.startsWith('8');
@@ -195,7 +205,7 @@ function armNextScanAsNewLine() {
 }
 
 // One scan handler for retail + warehouse.
-function handleSkuScan(skuTd, scannedValue, config) {
+function handleSkuScan(skuTd, scannedValue, config, scanOptions) {
     const tr = skuTd.parentElement;
     const inputValue = (scannedValue !== undefined ? scannedValue : getSkuCellText(skuTd)).trim();
 
@@ -207,15 +217,39 @@ function handleSkuScan(skuTd, scannedValue, config) {
     const skuName = resolveSkuFromInput(inputValue, config.allowAnyScan);
     if (!skuName) return;
 
-    const scanRowEmpty = !getSkuCellText(skuTd).trim();
-    const existingRow = findSkuRow(skuName, tr);
-    const forceNewLine = window.picklistNextScanNewLine;
+    const opts = scanOptions || {};
+    const forceNewLine = !!opts.forceNewLine;
+    const scanRowEmpty = !!opts.scanRowWasEmpty;
+
+    if (
+        !forceNewLine &&
+        window.__blockMergeForSku === skuName &&
+        Date.now() < window.__blockMergeUntil
+    ) {
+        return;
+    }
+
     if (forceNewLine) {
         window.picklistNextScanNewLine = false;
         setNewLineHintVisible(false);
+        window.__blockMergeForSku = skuName;
+        window.__blockMergeUntil = Date.now() + 1200;
+
+        let targetTr = findEmptySkuRow() || tr;
+        let targetSkuTd = targetTr.children[0];
+        config.setupRow(targetTr, targetSkuTd, skuName);
+
+        if (targetTr !== tr) {
+            config.clearScanRow(tr);
+        }
+
+        focusNextEmptySkuCell();
+        config.onAfterScan();
+        return;
     }
 
-    if (existingRow && scanRowEmpty && !forceNewLine) {
+    const existingRow = findSkuRow(skuName, tr);
+    if (existingRow && scanRowEmpty) {
         const countCell = existingRow.children[config.countCol];
         countCell.textContent = String((parseInt(countCell.textContent, 10) || 0) + 1);
 
@@ -279,12 +313,30 @@ function createSkuInput(skuTd, onScanComplete, options) {
     input.setAttribute('autocapitalize', 'off');
     input.setAttribute('spellcheck', 'false');
 
+    let scanLock = false;
+
     const finish = () => {
+        if (scanLock) return;
+
         const value = input.value.trim();
         if (!value) return;
-        const snapshot = value;
+
+        const tr = skuTd.parentElement;
+        const scanRowWasEmpty = !isPicklistRowCommitted(tr);
+
+        const forceNewLine = !!window.picklistNextScanNewLine;
+        if (forceNewLine) {
+            window.picklistNextScanNewLine = false;
+            setNewLineHintVisible(false);
+        }
+
+        scanLock = true;
         input.value = '';
-        onScanComplete(snapshot);
+        onScanComplete(value, { forceNewLine, scanRowWasEmpty });
+
+        setTimeout(() => {
+            scanLock = false;
+        }, 600);
     };
 
     input.addEventListener('input', () => {
@@ -304,15 +356,6 @@ function createSkuInput(skuTd, onScanComplete, options) {
             finish();
         }
     });
-
-    if (allowNameScans) {
-        input.addEventListener('blur', () => {
-            const value = input.value.trim();
-            if (shouldFinishWarehouseScan(value)) {
-                finish();
-            }
-        });
-    }
 
     skuTd.appendChild(input);
     skuTd.dataset.scanBound = '1';
@@ -386,6 +429,8 @@ window.resetPicklistPage = function() {
     clearPicklistStorage();
     window.picklistAllowUnload = true;
     window.picklistNextScanNewLine = false;
+    window.__blockMergeForSku = null;
+    window.__blockMergeUntil = 0;
     setNewLineHintVisible(false);
 
     document.querySelectorAll('.order-info [contenteditable], .table-footer [contenteditable]').forEach(el => {
