@@ -174,6 +174,7 @@ function processSkuRow(td) {
         if (existingRow) {
             const countCell = existingRow.children[3];
             countCell.textContent = (parseInt(countCell.textContent, 10) || 0) + 1;
+            window.suppressSkuScanInput = true;
             Array.from(tr.children).forEach(cell => {
                 cell.textContent = '';
                 if (cell.querySelector('select')) {
@@ -181,7 +182,10 @@ function processSkuRow(td) {
                     cell.contentEditable = true;
                 }
             });
-            focusNextEmptySkuCell();
+            setTimeout(() => {
+                window.suppressSkuScanInput = false;
+                focusNextEmptySkuCell();
+            }, 50);
             updateTotals();
             return;
         }

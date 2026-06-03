@@ -125,10 +125,15 @@ window.updateLotOptions = function(select, sku) {
     }
 };
 
-// Scanner wedge keyboards type one character at a time. Ignore partial barcodes
-// until the full code is present (or Enter is pressed).
+window.suppressSkuScanInput = false;
+
+// Strip scanner suffix noise (Enter, tabs, etc.) — Zebra often leaves non-digits in the cell.
+function extractScanDigits(text) {
+    return (text || '').replace(/\D/g, '');
+}
+
 function isIncompleteBarcodeScan(value) {
-    const v = (value || '').trim();
+    const v = extractScanDigits(value) || (value || '').trim();
     if (!v || !/^\d+$/.test(v)) return false;
     if (v.startsWith('8') && v.length < 12) return true;
     if (v.startsWith('1') && v.length < 13) return true;
@@ -136,35 +141,26 @@ function isIncompleteBarcodeScan(value) {
 }
 
 function isCompleteBarcodeScan(value) {
-    const v = (value || '').trim();
+    const v = extractScanDigits(value);
+    if (!v) return false;
     if (/^\d{12}$/.test(v) && v.startsWith('8')) return true;
     if (/^\d{13}$/.test(v) && v.startsWith('1') && v.substring(1).startsWith('8')) return true;
     return false;
 }
 
-const skuScanDedupe = { cell: null, at: 0 };
-
-// Only block Enter + debounce double-fire on the same cell (not repeat scans on new rows).
-function shouldSkipDuplicateSkuProcess(cell) {
-    const now = Date.now();
-    if (skuScanDedupe.cell === cell && now - skuScanDedupe.at < 100) {
-        return true;
-    }
-    skuScanDedupe.cell = cell;
-    skuScanDedupe.at = now;
-    return false;
-}
+let skuScanProcessing = false;
 
 function resolveSkuFromInput(inputValue) {
+    const digits = extractScanDigits(inputValue);
+    if (digits.length === 13 && digits.startsWith('1') && digits.substring(1).startsWith('8')) {
+        return SKUMAP[digits.substring(1)] || null;
+    }
+    if (digits.length === 12 && digits.startsWith('8')) {
+        return SKUMAP[digits] || null;
+    }
+
     const v = (inputValue || '').trim();
     if (!v) return null;
-
-    if (v.length === 13 && v.startsWith('1') && v.substring(1).startsWith('8')) {
-        return SKUMAP[v.substring(1)] || null;
-    }
-    if (v.length === 12 && v.startsWith('8')) {
-        return SKUMAP[v] || null;
-    }
     return v;
 }
 
@@ -205,33 +201,56 @@ function focusNextEmptySkuCell() {
 }
 
 function attachSkuScanHandlers(skuCell, processRow) {
-    let debounceTimer;
+    let manualTimer;
 
     const runProcess = () => {
-        const value = skuCell.textContent.trim();
-        if (!value || isIncompleteBarcodeScan(value)) return;
-        if (shouldSkipDuplicateSkuProcess(skuCell)) return;
-        processRow();
+        if (window.suppressSkuScanInput || skuScanProcessing) return;
+
+        const raw = skuCell.textContent.trim();
+        const digits = extractScanDigits(raw);
+        const scanValue = digits || raw;
+
+        if (!scanValue || isIncompleteBarcodeScan(scanValue)) return;
+
+        if (isCompleteBarcodeScan(scanValue)) {
+            skuCell.textContent = digits;
+        }
+
+        skuScanProcessing = true;
+        try {
+            processRow();
+        } finally {
+            setTimeout(() => {
+                skuScanProcessing = false;
+            }, 250);
+        }
     };
 
+    // Manual typing only — barcodes are handled on Enter (scanner suffix).
     skuCell.addEventListener('input', () => {
-        const value = skuCell.textContent.trim();
-        if (isIncompleteBarcodeScan(value)) return;
+        if (window.suppressSkuScanInput) return;
 
-        clearTimeout(debounceTimer);
-        if (isCompleteBarcodeScan(value)) {
-            debounceTimer = setTimeout(runProcess, 150);
-            return;
-        }
-        debounceTimer = setTimeout(runProcess, 400);
+        const raw = skuCell.textContent.trim();
+        if (!raw) return;
+
+        const digits = extractScanDigits(raw);
+        if (isIncompleteBarcodeScan(digits || raw)) return;
+        if (isCompleteBarcodeScan(digits || raw)) return;
+
+        clearTimeout(manualTimer);
+        manualTimer = setTimeout(runProcess, 500);
     });
 
     skuCell.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            clearTimeout(debounceTimer);
-            runProcess();
-        }
+        // Scanners usually end with Enter; some are configured to send Tab.
+        if (e.key !== 'Enter' && e.key !== 'Tab') return;
+        e.preventDefault();
+        clearTimeout(manualTimer);
+
+        // Mobile scanners often fire Enter/Tab before the last digit is in the DOM.
+        requestAnimationFrame(() => {
+            requestAnimationFrame(runProcess);
+        });
     });
 
     skuCell.dataset.scanBound = '1';

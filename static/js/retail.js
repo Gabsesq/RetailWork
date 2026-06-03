@@ -109,6 +109,7 @@ function shouldUseSet(sku) {
 }
 
 function clearRetailScanRow(tr) {
+    window.suppressSkuScanInput = true;
     Array.from(tr.children).forEach((cell, idx) => {
         if (idx === 1) {
             const lotSelect = document.createElement('select');
@@ -121,6 +122,9 @@ function clearRetailScanRow(tr) {
             cell.textContent = '';
         }
     });
+    setTimeout(() => {
+        window.suppressSkuScanInput = false;
+    }, 50);
 }
 
 function setupNewRetailRow(tr, td, skuName) {
@@ -160,7 +164,7 @@ function setupNewRetailRow(tr, td, skuName) {
 
 function processSkuRow(td) {
     const tr = td.parentElement;
-    const inputValue = td.textContent.trim();
+    const inputValue = td.textContent;
     const skuName = resolveSkuFromInput(inputValue);
 
     if (!skuName) return;
@@ -170,7 +174,7 @@ function processSkuRow(td) {
         const countCell = existingRow.children[4];
         countCell.textContent = (parseInt(countCell.textContent, 10) || 0) + 1;
         clearRetailScanRow(tr);
-        focusNextEmptySkuCell();
+        setTimeout(() => focusNextEmptySkuCell(), 50);
         checkForEmptyRow();
         return;
     }
