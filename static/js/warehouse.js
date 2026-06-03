@@ -154,9 +154,8 @@ function processSkuRow(td) {
     try {
         const tr = td.parentElement;
         const inputValue = td.textContent.trim();
-        
+
         if (!inputValue) {
-            // Clear the entire row if SKU is deleted
             Array.from(tr.children).forEach(cell => {
                 cell.textContent = '';
                 if (cell.firstChild && cell.firstChild.tagName === 'SELECT') {
@@ -168,104 +167,51 @@ function processSkuRow(td) {
             return;
         }
 
-        // Look for existing row with same SKU
-        const rows = Array.from(document.querySelectorAll('#excel-table tr')).reverse();
-        let existingRow = null;
-        
-        // For barcode inputs
-        if (inputValue.length === 12 && inputValue.startsWith("8")) {
-            if (SKUMAP[inputValue]) {
-                const skuName = SKUMAP[inputValue];
-                
-                // Find existing row with same SKU
-                for (let row of rows) {
-                    if (row !== tr && row.children[0].textContent.trim() === skuName) {
-                        existingRow = row;
-                        break;
-                    }
+        const skuName = resolveSkuFromInput(inputValue);
+        if (!skuName) return;
+
+        const existingRow = findExistingSkuRow(skuName, tr);
+        if (existingRow) {
+            const countCell = existingRow.children[3];
+            countCell.textContent = (parseInt(countCell.textContent, 10) || 0) + 1;
+            Array.from(tr.children).forEach(cell => {
+                cell.textContent = '';
+                if (cell.querySelector('select')) {
+                    cell.innerHTML = '';
+                    cell.contentEditable = true;
                 }
-                
-                if (existingRow) {
-                    // Add to existing row's count
-                    const countCell = existingRow.children[3];
-                    const currentCount = parseInt(countCell.textContent) || 0;
-                    countCell.textContent = currentCount + 1;
-                    
-                    // Clear the current row
-                    Array.from(tr.children).forEach(cell => {
-                        cell.textContent = '';
-                    });
-                } else {
-                    // Set up new row
-                    td.textContent = skuName;
-                    const lotCell = tr.children[1];
-                    const umCell = tr.children[2];
-                    
-                    umCell.textContent = "CS";
-                    
-                    // Create lot select
-                    const lotSelect = document.createElement("select");
-                    lotSelect.appendChild(new Option("", ""));
-                    lotSelect.addEventListener("change", handleLotSelection);
-                    lotCell.innerHTML = '';
-                    lotCell.appendChild(lotSelect);
-                    lotCell.contentEditable = false;
-                    
-                    updateLotOptions(lotSelect, skuName);
-                    
-                    // Set default count
-                    const countCell = tr.children[3];
-                    if (!countCell.textContent) {
-                        countCell.textContent = "1";
-                    }
-                }
-            }
-        } else {
-            // For manual text input
-            // Find existing row with same SKU text
-            for (let row of rows) {
-                if (row !== tr && 
-                    row.children[0].textContent.trim().toLowerCase() === inputValue.toLowerCase()) {
-                    existingRow = row;
-                    break;
-                }
-            }
-            
-            if (existingRow) {
-                // Add to existing row's count
-                const countCell = existingRow.children[3];
-                const currentCount = parseInt(countCell.textContent) || 0;
-                const newCount = parseInt(tr.children[3].textContent) || 1;
-                countCell.textContent = currentCount + newCount;
-                
-                // Clear the current row
-                Array.from(tr.children).forEach(cell => {
-                    cell.textContent = '';
-                });
-            } else {
-                // Set up new row
-                const umCell = tr.children[2];
-                umCell.textContent = "CS";
-                
-                // Set default count
-                const countCell = tr.children[3];
-                if (!countCell.textContent) {
-                    countCell.textContent = "1";
-                }
-            }
+            });
+            focusNextEmptySkuCell();
+            updateTotals();
+            return;
         }
-        
-        // After setting up a new row or combining rows, validate the count
+
+        td.textContent = skuName;
+        const lotCell = tr.children[1];
+        const umCell = tr.children[2];
+        umCell.textContent = "CS";
+
+        const lotSelect = document.createElement("select");
+        lotSelect.appendChild(new Option("", ""));
+        lotSelect.addEventListener("change", handleLotSelection);
+        lotCell.innerHTML = '';
+        lotCell.appendChild(lotSelect);
+        lotCell.contentEditable = false;
+        updateLotOptions(lotSelect, skuName);
+
         const countCell = tr.children[3];
+        if (!countCell.textContent) {
+            countCell.textContent = "1";
+        }
+
         validateAndUpdateCount(countCell);
-        
-        // Check if we need to add a new empty row
+
         const allRows = Array.from(document.querySelectorAll('#excel-table tr'));
         const hasEmptyRow = allRows.some(row => !row.children[0].textContent.trim());
         if (!hasEmptyRow) {
             document.getElementById('excel-table').appendChild(createRow());
         }
-        
+
         updateTotals();
     } catch (error) {
         console.error('Error handling SKU input:', error);
@@ -374,6 +320,7 @@ document.getElementById('clearButton').addEventListener('click', function() {
         
         const tbody = document.getElementById('excel-table');
         tbody.innerHTML = '';
+        localStorage.removeItem('picklistState');
         renderTable();
     }
 }); 

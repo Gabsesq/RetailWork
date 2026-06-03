@@ -108,141 +108,74 @@ function shouldUseSet(sku) {
     return upperSku.startsWith("DB") || upperSku.startsWith("PR-INT-CS");
 }
 
+function clearRetailScanRow(tr) {
+    Array.from(tr.children).forEach((cell, idx) => {
+        if (idx === 1) {
+            const lotSelect = document.createElement('select');
+            lotSelect.appendChild(new Option('', ''));
+            lotSelect.addEventListener('change', handleLotSelection);
+            cell.innerHTML = '';
+            cell.appendChild(lotSelect);
+            cell.contentEditable = false;
+        } else {
+            cell.textContent = '';
+        }
+    });
+}
+
+function setupNewRetailRow(tr, td, skuName) {
+    td.textContent = skuName;
+
+    const umCell = tr.children[3];
+    if (skuName.toUpperCase().startsWith("WH")) {
+        umCell.textContent = "CS";
+    } else {
+        umCell.textContent = shouldUseSet(skuName) ? "Set" : "EA";
+    }
+
+    const lotCell = tr.children[1];
+    if (skuName.toUpperCase().startsWith("WH")) {
+        if (lotCell.querySelector('select')) {
+            lotCell.innerHTML = '';
+            lotCell.contentEditable = true;
+        }
+    } else {
+        let lotSelect = lotCell.querySelector('select');
+        if (!lotSelect) {
+            lotSelect = document.createElement('select');
+            lotSelect.appendChild(new Option('', ''));
+            lotSelect.addEventListener('change', handleLotSelection);
+            lotCell.innerHTML = '';
+            lotCell.appendChild(lotSelect);
+            lotCell.contentEditable = false;
+        }
+        updateLotOptions(lotSelect, skuName);
+    }
+
+    const countCell = tr.children[4];
+    if (!countCell.textContent) {
+        countCell.textContent = "1";
+    }
+}
+
 function processSkuRow(td) {
     const tr = td.parentElement;
     const inputValue = td.textContent.trim();
-    
-    // Check for barcode with quantity prefix
-    if (inputValue.length === 13 && inputValue.startsWith("1") && inputValue.substring(1).startsWith("8")) {
-        const barcode = inputValue.substring(1); // Remove the "1" prefix
-        if (SKUMAP[barcode]) {
-            // Always create new line for prefixed barcodes
-            td.textContent = SKUMAP[barcode];
-            
-            const umCell = tr.children[3];
-            // Set U/M to "Set" if SKU starts with "DB" or "PR-INT-CS", otherwise "EA"
-            umCell.textContent = shouldUseSet(SKUMAP[barcode]) ? "Set" : "EA";
-            
-            const countCell = tr.children[4];
-            if (!countCell.textContent) {
-                countCell.textContent = "1";
-            }
-            
-            const lotSelect = tr.children[1].querySelector('select');
-            if (lotSelect) {
-                updateLotOptions(lotSelect, SKUMAP[barcode]);
-            }
-            
-            checkForEmptyRow();
-            return;
-        }
+    const skuName = resolveSkuFromInput(inputValue);
+
+    if (!skuName) return;
+
+    const existingRow = findExistingSkuRow(skuName, tr);
+    if (existingRow) {
+        const countCell = existingRow.children[4];
+        countCell.textContent = (parseInt(countCell.textContent, 10) || 0) + 1;
+        clearRetailScanRow(tr);
+        focusNextEmptySkuCell();
+        checkForEmptyRow();
+        return;
     }
-    
-    // For manual text input
-    if (inputValue && !inputValue.startsWith("8")) {
-        const umCell = tr.children[3];
-        if (inputValue.toUpperCase().startsWith("WH")) {
-            umCell.textContent = "CS";
-        } else if (shouldUseSet(inputValue)) {
-            umCell.textContent = "Set";
-        } else {
-            umCell.textContent = "EA";
-        }
-        
-        // Rest of the existing row handling...
-        const rows = Array.from(document.querySelectorAll('#excel-table tr')).reverse();
-        let existingRow = null;
-        
-        // Look for existing row with same SKU text
-        for (let row of rows) {
-            if (row !== tr && 
-                row.children[0].textContent.trim().toLowerCase() === inputValue.toLowerCase()) {
-                existingRow = row;
-                break;
-            }
-        }
-        
-        if (existingRow) {
-            // Add to existing row's count
-            const countCell = existingRow.children[4];
-            const currentCount = parseInt(countCell.textContent) || 0;
-            countCell.textContent = currentCount + 1;
-            
-            // Clear the current row
-            Array.from(tr.children).forEach(cell => {
-                if (cell.querySelector('select')) {
-                    cell.querySelector('select').value = '';
-                } else {
-                    cell.textContent = '';
-                }
-            });
-        } else {
-            // Set up new row
-            const lotCell = tr.children[1];
-            if (inputValue.toUpperCase().startsWith("WH")) {
-                if (lotCell.querySelector('select')) {
-                    lotCell.innerHTML = '';
-                    lotCell.contentEditable = true;
-                }
-            }
-            
-            const countCell = tr.children[4];
-            if (!countCell.textContent) {
-                countCell.textContent = "1";
-            }
-        }
-    }
-    
-    // For barcode inputs
-    if (inputValue.length === 12 && inputValue.startsWith("8")) {
-        if (SKUMAP[inputValue]) {
-            const skuName = SKUMAP[inputValue];
-            
-            // Look for existing row with same SKU
-            const rows = Array.from(document.querySelectorAll('#excel-table tr')).reverse();
-            let existingRow = null;
-            
-            for (let row of rows) {
-                if (row !== tr && row.children[0].textContent.trim() === skuName) {
-                    existingRow = row;
-                    break;
-                }
-            }
-            
-            if (existingRow) {
-                // Add to existing row's count
-                const countCell = existingRow.children[4];
-                const currentCount = parseInt(countCell.textContent) || 0;
-                countCell.textContent = currentCount + 1;
-                
-                // Clear the current row
-                Array.from(tr.children).forEach(cell => {
-                    if (cell.querySelector('select')) {
-                        cell.querySelector('select').value = '';
-                    } else {
-                        cell.textContent = '';
-                    }
-                });
-            } else {
-                // Set up new row
-                td.textContent = skuName;
-                const umCell = tr.children[3];
-                // Set U/M to "Set" if SKU starts with "DB" or "PR-INT-CS", otherwise "EA"
-                umCell.textContent = shouldUseSet(skuName) ? "Set" : "EA";
-                
-                const countCell = tr.children[4];
-                if (!countCell.textContent) {
-                    countCell.textContent = "1";
-                }
-                
-                const lotSelect = tr.children[1].querySelector('select');
-                if (lotSelect) {
-                    updateLotOptions(lotSelect, skuName);
-                }
-            }
-        }
-    }
-    
+
+    setupNewRetailRow(tr, td, skuName);
     checkForEmptyRow();
 }
 
@@ -312,6 +245,7 @@ document.getElementById('clearButton').addEventListener('click', function() {
         
         const tbody = document.getElementById('excel-table');
         tbody.innerHTML = '';
+        localStorage.removeItem('picklistState');
         renderTable();
     }
 }); 

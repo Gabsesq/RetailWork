@@ -142,17 +142,66 @@ function isCompleteBarcodeScan(value) {
     return false;
 }
 
-const skuScanDedupe = { cell: null, value: '', at: 0 };
+const skuScanDedupe = { cell: null, at: 0 };
 
-function shouldSkipDuplicateSkuProcess(cell, value) {
+// Only block Enter + debounce double-fire on the same cell (not repeat scans on new rows).
+function shouldSkipDuplicateSkuProcess(cell) {
     const now = Date.now();
-    if (skuScanDedupe.cell === cell && skuScanDedupe.value === value && now - skuScanDedupe.at < 400) {
+    if (skuScanDedupe.cell === cell && now - skuScanDedupe.at < 100) {
         return true;
     }
     skuScanDedupe.cell = cell;
-    skuScanDedupe.value = value;
     skuScanDedupe.at = now;
     return false;
+}
+
+function resolveSkuFromInput(inputValue) {
+    const v = (inputValue || '').trim();
+    if (!v) return null;
+
+    if (v.length === 13 && v.startsWith('1') && v.substring(1).startsWith('8')) {
+        return SKUMAP[v.substring(1)] || null;
+    }
+    if (v.length === 12 && v.startsWith('8')) {
+        return SKUMAP[v] || null;
+    }
+    return v;
+}
+
+function findExistingSkuRow(skuName, excludeTr) {
+    const normalized = normalizeSkuName(skuName);
+    const rows = Array.from(document.querySelectorAll('#excel-table tr')).reverse();
+
+    for (const row of rows) {
+        if (row === excludeTr) continue;
+        const text = row.children[0].textContent.trim();
+        if (!text) continue;
+        if (normalizeSkuName(text) === normalized || text === skuName) {
+            return row;
+        }
+    }
+    return null;
+}
+
+function clearPicklistRow(tr) {
+    Array.from(tr.children).forEach(cell => {
+        if (cell.querySelector('select')) {
+            cell.innerHTML = '<select><option value=""></option></select>';
+        } else {
+            cell.textContent = '';
+        }
+    });
+}
+
+function focusNextEmptySkuCell() {
+    const rows = document.querySelectorAll('#excel-table tr');
+    for (const row of rows) {
+        const skuCell = row.children[0];
+        if (skuCell && !skuCell.textContent.trim()) {
+            skuCell.focus();
+            return;
+        }
+    }
 }
 
 function attachSkuScanHandlers(skuCell, processRow) {
@@ -161,7 +210,7 @@ function attachSkuScanHandlers(skuCell, processRow) {
     const runProcess = () => {
         const value = skuCell.textContent.trim();
         if (!value || isIncompleteBarcodeScan(value)) return;
-        if (shouldSkipDuplicateSkuProcess(skuCell, value)) return;
+        if (shouldSkipDuplicateSkuProcess(skuCell)) return;
         processRow();
     };
 
