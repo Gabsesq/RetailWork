@@ -191,10 +191,11 @@ function processSkuRow(skuTd, scannedValue) {
             return;
         }
 
-        const skuName = resolveSkuFromInput(inputValue);
+        const parsed = parseSkuInput(inputValue);
+        const skuName = parsed.skuName;
         if (!skuName) return;
 
-        if (isQuantityPrefixBarcode(inputValue)) {
+        if (parsed.forceNewLine) {
             setupWarehouseSkuRow(tr, skuTd, skuName);
             focusNextEmptySkuCell();
             checkForEmptyRow();

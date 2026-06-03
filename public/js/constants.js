@@ -154,20 +154,47 @@ function focusSkuCell(skuTd) {
     skuTd.focus();
 }
 
-function resolveSkuFromInput(inputValue) {
+// Leading "1" = always a new line (same product, different lot).
+// - "1" + 12-digit UPC (scanner)
+// - "1" + name like "1TS-Edi-STRESS-Pepp" or "1 TS-Edi..." (typed or scanned)
+// Does NOT match SKUs that start with 1 such as "100-DR-HO".
+function parseSkuInput(inputValue) {
     const v = (inputValue || '').trim();
-    if (!v) return null;
+    if (!v) return { skuName: null, forceNewLine: false };
 
     const digits = extractScanDigits(v);
+
     if (digits.length === 13 && digits.startsWith('1') && digits.substring(1).startsWith('8')) {
-        return SKUMAP[digits.substring(1)] || null;
-    }
-    if (digits.length === 12 && digits.startsWith('8')) {
-        return SKUMAP[digits] || null;
+        const barcode = digits.substring(1);
+        return {
+            skuName: SKUMAP[barcode] || null,
+            forceNewLine: true
+        };
     }
 
-    // Warehouse name labels and typed SKUs (not a 12-digit UPC)
-    return v;
+    if (/^1[A-Za-z]/.test(v)) {
+        const name = v.substring(1).trim();
+        return { skuName: name || null, forceNewLine: true };
+    }
+
+    if (/^1\s+[A-Za-z-]/.test(v)) {
+        const name = v.replace(/^1\s+/, '').trim();
+        return { skuName: name || null, forceNewLine: true };
+    }
+
+    if (digits.length === 12 && digits.startsWith('8')) {
+        return { skuName: SKUMAP[digits] || null, forceNewLine: false };
+    }
+
+    return { skuName: v, forceNewLine: false };
+}
+
+function resolveSkuFromInput(inputValue) {
+    return parseSkuInput(inputValue).skuName;
+}
+
+function isQuantityPrefixScan(value) {
+    return parseSkuInput(value).forceNewLine;
 }
 
 function skuNamesMatch(left, right) {
@@ -246,10 +273,38 @@ function isCompleteBarcodeScan(value) {
     return false;
 }
 
-// Leading 1 + 12-digit UPC = new line (same SKU, different lot), do not merge count.
-function isQuantityPrefixBarcode(value) {
+function isTypingPartialBarcode(value) {
     const digits = extractScanDigits(value);
-    return digits.length === 13 && digits.startsWith('1') && digits.substring(1).startsWith('8');
+    return digits.length > 0 && digits.length < 12 && /^\d+$/.test(digits);
+}
+
+// Warehouse name labels (e.g. TS-Edi-STRESS-Pepp) — finish row without clicking away.
+function shouldFinishNameScan(value) {
+    if (isTypingPartialBarcode(value)) return false;
+
+    const parsed = parseSkuInput(value);
+    if (parsed.forceNewLine && parsed.skuName) {
+        return parsed.skuName.includes('-') || parsed.skuName.length >= 6;
+    }
+
+    if (!looksLikeProductName(value)) return false;
+    if (value.includes('-')) return true;
+    return value.length >= 6;
+}
+
+function isReadyToFinishScan(value) {
+    const v = value.trim();
+    if (!v) return false;
+
+    const parsed = parseSkuInput(v);
+    if (parsed.forceNewLine) {
+        const digits = extractScanDigits(v);
+        if (isCompleteBarcodeScan(digits)) return true;
+        return !!(parsed.skuName && (parsed.skuName.includes('-') || parsed.skuName.length >= 6));
+    }
+
+    if (isCompleteBarcodeScan(extractScanDigits(v))) return true;
+    return shouldFinishNameScan(v);
 }
 
 function createSkuInput(skuTd, onScanComplete, options) {
@@ -272,19 +327,31 @@ function createSkuInput(skuTd, onScanComplete, options) {
 
     input.addEventListener('input', () => {
         const value = input.value.trim();
-        if (!value || isQuantityPrefixBarcode(value)) return;
+        if (!value) return;
 
         const tr = skuTd.parentElement;
-        const skuName = resolveSkuFromInput(value);
-        if (!skuName) return;
+        const parsed = parseSkuInput(value);
+        if (!parsed.skuName) return;
 
-        // Same SKU on a row above (no leading 1) → bump count and clear this line immediately.
-        if (findSkuRowAbove(tr, skuName)) {
+        // Leading 1 = new line (never merge with row above).
+        if (parsed.forceNewLine) {
+            if (isReadyToFinishScan(value)) {
+                finishScan();
+            }
+            return;
+        }
+
+        if (findSkuRowAbove(tr, parsed.skuName)) {
             finishScan();
             return;
         }
 
         if (isCompleteBarcodeScan(extractScanDigits(value))) {
+            finishScan();
+            return;
+        }
+
+        if (allowNameScans && shouldFinishNameScan(value)) {
             finishScan();
         }
     });

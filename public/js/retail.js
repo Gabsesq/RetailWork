@@ -139,11 +139,12 @@ function setupNewRetailRow(tr, skuTd, skuName) {
 function processSkuRow(skuTd, scannedValue) {
     const tr = skuTd.parentElement;
     const raw = scannedValue !== undefined ? scannedValue : getSkuCellText(skuTd);
-    const skuName = resolveSkuFromInput(raw);
+    const parsed = parseSkuInput(raw);
+    const skuName = parsed.skuName;
 
     if (!skuName) return;
 
-    if (isQuantityPrefixBarcode(raw)) {
+    if (parsed.forceNewLine) {
         setupNewRetailRow(tr, skuTd, skuName);
         focusNextEmptySkuCell();
         checkForEmptyRow();
