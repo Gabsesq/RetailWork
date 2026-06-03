@@ -176,16 +176,6 @@ function focusNextEmptySkuCell() {
     }
 }
 
-function isPicklistRowCommitted(tr) {
-    const sku = getSkuCellText(tr.children[0]).trim();
-    if (!sku) return false;
-    const count =
-        parseInt(tr.children[4]?.textContent, 10) ||
-        parseInt(tr.children[3]?.textContent, 10) ||
-        0;
-    return count > 0;
-}
-
 function isCompleteBarcodeScan(value) {
     const v = extractScanDigits(value);
     return /^\d{12}$/.test(v) && v.startsWith('8');
@@ -205,7 +195,7 @@ function armNextScanAsNewLine() {
 }
 
 // One scan handler for retail + warehouse.
-function handleSkuScan(skuTd, scannedValue, config, scanOptions) {
+function handleSkuScan(skuTd, scannedValue, config) {
     const tr = skuTd.parentElement;
     const inputValue = (scannedValue !== undefined ? scannedValue : getSkuCellText(skuTd)).trim();
 
@@ -217,23 +207,11 @@ function handleSkuScan(skuTd, scannedValue, config, scanOptions) {
     const skuName = resolveSkuFromInput(inputValue, config.allowAnyScan);
     if (!skuName) return;
 
-    const opts = scanOptions || {};
-    const forceNewLine = !!opts.forceNewLine;
-    const scanRowEmpty = !!opts.scanRowWasEmpty;
-
-    if (
-        !forceNewLine &&
-        window.__blockMergeForSku === skuName &&
-        Date.now() < window.__blockMergeUntil
-    ) {
-        return;
-    }
-
+    const scanRowEmpty = !getSkuCellText(skuTd).trim();
+    const forceNewLine = window.picklistNextScanNewLine;
     if (forceNewLine) {
         window.picklistNextScanNewLine = false;
         setNewLineHintVisible(false);
-        window.__blockMergeForSku = skuName;
-        window.__blockMergeUntil = Date.now() + 1200;
 
         let targetTr = findEmptySkuRow() || tr;
         let targetSkuTd = targetTr.children[0];
@@ -321,22 +299,14 @@ function createSkuInput(skuTd, onScanComplete, options) {
         const value = input.value.trim();
         if (!value) return;
 
-        const tr = skuTd.parentElement;
-        const scanRowWasEmpty = !isPicklistRowCommitted(tr);
-
-        const forceNewLine = !!window.picklistNextScanNewLine;
-        if (forceNewLine) {
-            window.picklistNextScanNewLine = false;
-            setNewLineHintVisible(false);
-        }
-
         scanLock = true;
+        const snapshot = value;
         input.value = '';
-        onScanComplete(value, { forceNewLine, scanRowWasEmpty });
+        onScanComplete(snapshot);
 
         setTimeout(() => {
             scanLock = false;
-        }, 600);
+        }, 400);
     };
 
     input.addEventListener('input', () => {
@@ -356,6 +326,15 @@ function createSkuInput(skuTd, onScanComplete, options) {
             finish();
         }
     });
+
+    if (allowNameScans) {
+        input.addEventListener('blur', () => {
+            const value = input.value.trim();
+            if (shouldFinishWarehouseScan(value)) {
+                finish();
+            }
+        });
+    }
 
     skuTd.appendChild(input);
     skuTd.dataset.scanBound = '1';
@@ -429,8 +408,6 @@ window.resetPicklistPage = function() {
     clearPicklistStorage();
     window.picklistAllowUnload = true;
     window.picklistNextScanNewLine = false;
-    window.__blockMergeForSku = null;
-    window.__blockMergeUntil = 0;
     setNewLineHintVisible(false);
 
     document.querySelectorAll('.order-info [contenteditable], .table-footer [contenteditable]').forEach(el => {
