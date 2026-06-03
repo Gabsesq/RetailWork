@@ -148,6 +148,27 @@ window.reattachSkuListeners = function() {
     });
 };
 
+function setupWarehouseSkuRow(tr, skuTd, skuName) {
+    setSkuCellText(skuTd, skuName);
+
+    const lotCell = tr.children[1];
+    const umCell = tr.children[2];
+    const countCell = tr.children[3];
+
+    umCell.textContent = 'CS';
+
+    const lotSelect = document.createElement('select');
+    lotSelect.appendChild(new Option('', ''));
+    lotSelect.addEventListener('change', handleLotSelection);
+    lotCell.innerHTML = '';
+    lotCell.appendChild(lotSelect);
+    lotCell.contentEditable = false;
+    updateLotOptions(lotSelect, skuName);
+
+    countCell.textContent = '1';
+    updateTotals();
+}
+
 function processSkuRow(skuTd, scannedValue) {
     try {
         const tr = skuTd.parentElement;
@@ -174,31 +195,18 @@ function processSkuRow(skuTd, scannedValue) {
         if (!skuName) return;
 
         if (isQuantityPrefixBarcode(inputValue)) {
-            setSkuCellText(skuTd, skuName);
-            const lotCell = tr.children[1];
-            const umCell = tr.children[2];
-            umCell.textContent = "CS";
-
-            const lotSelect = document.createElement("select");
-            lotSelect.appendChild(new Option("", ""));
-            lotSelect.addEventListener("change", handleLotSelection);
-            lotCell.innerHTML = '';
-            lotCell.appendChild(lotSelect);
-            lotCell.contentEditable = false;
-            updateLotOptions(lotSelect, skuName);
-
-            const countCell = tr.children[3];
-            countCell.textContent = "1";
-
-            validateAndUpdateCount(countCell);
+            setupWarehouseSkuRow(tr, skuTd, skuName);
             focusNextEmptySkuCell();
             checkForEmptyRow();
-            updateTotals();
             return;
         }
 
         const existingRow = findSkuRow(skuName);
         if (existingRow) {
+            if (!existingRow.children[1].querySelector('select')) {
+                setupWarehouseSkuRow(existingRow, existingRow.children[0], skuName);
+            }
+
             const countCell = existingRow.children[3];
             countCell.textContent = String((parseInt(countCell.textContent, 10) || 0) + 1);
 
@@ -207,13 +215,8 @@ function processSkuRow(skuTd, scannedValue) {
                 Array.from(tr.children).forEach((cell, idx) => {
                     if (idx === 0) return;
                     cell.textContent = '';
-                    if (cell.querySelector('select')) {
-                        cell.innerHTML = '';
-                        cell.contentEditable = true;
-                    }
+                    cell.contentEditable = true;
                 });
-            } else {
-                setSkuCellText(skuTd, skuName);
             }
 
             focusNextEmptySkuCell();
@@ -221,25 +224,7 @@ function processSkuRow(skuTd, scannedValue) {
             return;
         }
 
-        setSkuCellText(skuTd, skuName);
-        const lotCell = tr.children[1];
-        const umCell = tr.children[2];
-        umCell.textContent = "CS";
-
-        const lotSelect = document.createElement("select");
-        lotSelect.appendChild(new Option("", ""));
-        lotSelect.addEventListener("change", handleLotSelection);
-        lotCell.innerHTML = '';
-        lotCell.appendChild(lotSelect);
-        lotCell.contentEditable = false;
-        updateLotOptions(lotSelect, skuName);
-
-        const countCell = tr.children[3];
-        if (!countCell.textContent) {
-            countCell.textContent = "1";
-        }
-
-        validateAndUpdateCount(countCell);
+        setupWarehouseSkuRow(tr, skuTd, skuName);
 
         const allRows = Array.from(document.querySelectorAll('#excel-table tr'));
         const hasEmptyRow = allRows.some(row => !getSkuCellText(row.children[0]).trim());
@@ -247,7 +232,8 @@ function processSkuRow(skuTd, scannedValue) {
             document.getElementById('excel-table').appendChild(createRow());
         }
 
-        updateTotals();
+        focusNextEmptySkuCell();
+        checkForEmptyRow();
     } catch (error) {
         console.error('Error handling SKU input:', error);
     }

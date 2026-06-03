@@ -234,6 +234,8 @@ function isQuantityPrefixBarcode(value) {
 
 // Plain <input> — scanner types digits in like any other app. "Process" = convert
 // barcode to SKU name, update count, fill lot dropdown (you don't press anything).
+window.picklistScanBusy = false;
+
 function createSkuInput(skuTd, onScanComplete, options) {
     const allowNameScans = options && options.allowNameScans;
     const input = document.createElement('input');
@@ -245,35 +247,32 @@ function createSkuInput(skuTd, onScanComplete, options) {
     input.setAttribute('spellcheck', 'false');
 
     let finishTimer;
-    let scanLock = false;
 
     const runOnce = () => {
-        if (scanLock) return;
+        if (window.picklistScanBusy) return;
 
         const value = input.value.trim();
         if (!value) return;
 
-        scanLock = true;
+        window.picklistScanBusy = true;
         const snapshot = value;
         input.value = '';
 
-        onScanComplete(snapshot);
-
-        setTimeout(() => {
-            scanLock = false;
-        }, 350);
+        try {
+            onScanComplete(snapshot);
+        } finally {
+            setTimeout(() => {
+                window.picklistScanBusy = false;
+            }, 200);
+        }
     };
 
     input.addEventListener('input', () => {
         clearTimeout(finishTimer);
         const digits = extractScanDigits(input.value);
+        // Numeric UPC only — name labels are finished on Enter/Tab (avoids partial "Edi-STRESS").
         if (isCompleteBarcodeScan(digits)) {
             finishTimer = setTimeout(runOnce, 100);
-            return;
-        }
-        // Warehouse: scan guns often print the SKU name (not a 12-digit UPC).
-        if (allowNameScans && looksLikeProductName(input.value)) {
-            finishTimer = setTimeout(runOnce, 200);
         }
     });
 
@@ -284,6 +283,15 @@ function createSkuInput(skuTd, onScanComplete, options) {
             runOnce();
         }
     });
+
+    if (allowNameScans) {
+        input.addEventListener('blur', () => {
+            clearTimeout(finishTimer);
+            if (input.value.trim()) {
+                runOnce();
+            }
+        });
+    }
 
     skuTd.appendChild(input);
     skuTd.dataset.scanBound = '1';
