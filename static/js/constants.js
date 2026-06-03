@@ -168,17 +168,27 @@ function resolveSkuFromInput(inputValue) {
     return v;
 }
 
-function findSkuRow(skuName) {
+function skuRowMatchesName(row, skuName) {
+    const text = getSkuCellText(row.children[0]).trim();
+    if (!text) return false;
     const normalized = normalizeSkuName(skuName);
+    return normalizeSkuName(text) === normalized || text === skuName;
+}
 
-    for (const row of document.querySelectorAll('#excel-table tr')) {
-        const text = getSkuCellText(row.children[0]).trim();
-        if (!text) continue;
-        if (normalizeSkuName(text) === normalized || text === skuName) {
-            return row;
+// Bottom-most row with this SKU (for +count on repeat scans).
+function findSkuRow(skuName, currentTr) {
+    const rows = Array.from(document.querySelectorAll('#excel-table tr'));
+    let found = null;
+
+    for (const row of rows) {
+        if (currentTr && row === currentTr && !getSkuCellText(row.children[0]).trim()) {
+            continue;
+        }
+        if (skuRowMatchesName(row, skuName)) {
+            found = row;
         }
     }
-    return null;
+    return found;
 }
 
 function findEmptySkuRow() {
@@ -403,6 +413,52 @@ function getElementPath(el) {
     }
     return path.join(" > ");
 }
+
+window.picklistAllowUnload = false;
+
+function picklistHasProgress() {
+    if (window.picklistAllowUnload) return false;
+
+    const tbody = document.getElementById('excel-table');
+    if (tbody) {
+        for (const row of tbody.querySelectorAll('tr')) {
+            const skuCell = row.children[0];
+            if (skuCell && getSkuCellText(skuCell).trim()) return true;
+
+            const lotCell = row.children[1];
+            if (lotCell) {
+                const lotSelect = lotCell.querySelector('select');
+                if (lotSelect && lotSelect.value) return true;
+                if ((lotCell.textContent || '').trim()) return true;
+            }
+        }
+    }
+
+    const soNumber = document.querySelector('.so-number-box');
+    if (soNumber && soNumber.textContent.trim()) return true;
+
+    for (const el of document.querySelectorAll('.order-info [contenteditable]')) {
+        if (el.textContent.trim()) return true;
+    }
+
+    for (const el of document.querySelectorAll('.table-footer [contenteditable]')) {
+        if (el.textContent.trim()) return true;
+    }
+
+    return false;
+}
+
+// Skip reload/leave warning (e.g. after Clear).
+window.allowLeavePicklist = function() {
+    window.picklistAllowUnload = true;
+};
+
+window.addEventListener('beforeunload', function(e) {
+    if (!picklistHasProgress()) return;
+
+    e.preventDefault();
+    e.returnValue = '';
+});
 
 window.addEventListener('online', function() {
     console.log('Network connection restored');

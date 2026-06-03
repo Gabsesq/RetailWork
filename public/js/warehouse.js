@@ -226,7 +226,7 @@ function processSkuRow(skuTd, scannedValue) {
             return;
         }
 
-        const existingRow = findSkuRow(skuName);
+        const existingRow = findSkuRow(skuName, tr);
         if (existingRow) {
             const countCell = existingRow.children[3];
             countCell.textContent = String((parseInt(countCell.textContent, 10) || 0) + 1);
@@ -378,6 +378,7 @@ document.getElementById('printButton').addEventListener('click', async function(
 
 document.getElementById('clearButton').addEventListener('click', function() {
     if (confirm('Are you sure you want to clear all entries? This cannot be undone.')) {
+        if (window.allowLeavePicklist) allowLeavePicklist();
         document.querySelectorAll('.order-info [contenteditable]').forEach(element => {
             element.textContent = '';
         });
