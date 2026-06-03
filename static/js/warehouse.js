@@ -94,7 +94,7 @@ function processSkuRow(skuTd, scannedValue, scanOptions) {
             updateTotals();
             checkForEmptyRow();
         }
-    });
+    }, scanOptions);
 }
 
 function updateTotals() {

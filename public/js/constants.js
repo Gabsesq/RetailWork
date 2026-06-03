@@ -176,6 +176,16 @@ function focusNextEmptySkuCell() {
     }
 }
 
+function isPicklistRowCommitted(tr) {
+    const sku = getSkuCellText(tr.children[0]).trim();
+    if (!sku) return false;
+    const count =
+        parseInt(tr.children[4]?.textContent, 10) ||
+        parseInt(tr.children[3]?.textContent, 10) ||
+        0;
+    return count > 0;
+}
+
 function isCompleteBarcodeScan(value) {
     const v = extractScanDigits(value);
     return /^\d{12}$/.test(v) && v.startsWith('8');
@@ -195,7 +205,7 @@ function armNextScanAsNewLine() {
 }
 
 // One scan handler for retail + warehouse.
-function handleSkuScan(skuTd, scannedValue, config) {
+function handleSkuScan(skuTd, scannedValue, config, scanOptions) {
     const tr = skuTd.parentElement;
     const inputValue = (scannedValue !== undefined ? scannedValue : getSkuCellText(skuTd)).trim();
 
@@ -207,11 +217,23 @@ function handleSkuScan(skuTd, scannedValue, config) {
     const skuName = resolveSkuFromInput(inputValue, config.allowAnyScan);
     if (!skuName) return;
 
-    const scanRowEmpty = !getSkuCellText(skuTd).trim();
-    const forceNewLine = window.picklistNextScanNewLine;
+    const opts = scanOptions || {};
+    const forceNewLine = !!opts.forceNewLine;
+    const scanRowEmpty = !!opts.scanRowWasEmpty;
+
+    if (
+        !forceNewLine &&
+        window.__blockMergeForSku === skuName &&
+        Date.now() < window.__blockMergeUntil
+    ) {
+        return;
+    }
+
     if (forceNewLine) {
         window.picklistNextScanNewLine = false;
         setNewLineHintVisible(false);
+        window.__blockMergeForSku = skuName;
+        window.__blockMergeUntil = Date.now() + 1200;
 
         let targetTr = findEmptySkuRow() || tr;
         let targetSkuTd = targetTr.children[0];
@@ -262,22 +284,15 @@ function handleSkuScan(skuTd, scannedValue, config) {
     config.onAfterScan();
 }
 
-function shouldFinishWarehouseScan(value) {
+// True when field is only digits and still building a 12/13-digit UPC (not a name like 150-Mini-...).
+function isPartialBarcodeOnly(value) {
     const v = (value || '').trim();
-    if (!v) return false;
-    if (isCompleteBarcodeScan(extractScanDigits(v))) return true;
-
-    // Names like 150-Mini-Stress-HO / 100-Lipe-Ultra (not a partial "1..." UPC).
-    if (/[A-Za-z]/.test(v)) {
-        if (v.includes('-')) return v.length >= 6;
-        return v.length >= 3;
-    }
-
-    // Numeric-only: wait for full 8… UPC; short codes like 123 finish immediately.
-    if (!/^\d+$/.test(v)) return true;
-    if (v.startsWith('8') && v.length < 12) return false;
-    if (v.startsWith('1') && v.length > 3 && v.length < 13) return false;
-    return true;
+    if (/[A-Za-z]/.test(v)) return false;
+    const digits = extractScanDigits(v);
+    if (!digits || digits !== v) return false;
+    if (digits.startsWith('8') && digits.length < 12) return true;
+    if (digits.startsWith('1') && digits.length > 1 && digits.length < 13) return true;
+    return false;
 }
 
 function createSkuInput(skuTd, onScanComplete, options) {
@@ -292,6 +307,7 @@ function createSkuInput(skuTd, onScanComplete, options) {
     input.setAttribute('spellcheck', 'false');
 
     let scanLock = false;
+    let nameScanTimer;
 
     const finish = () => {
         if (scanLock) return;
@@ -299,42 +315,54 @@ function createSkuInput(skuTd, onScanComplete, options) {
         const value = input.value.trim();
         if (!value) return;
 
+        clearTimeout(nameScanTimer);
+
+        const tr = skuTd.parentElement;
+        const scanRowWasEmpty = !isPicklistRowCommitted(tr);
+        const forceNewLine = !!window.picklistNextScanNewLine;
+        if (forceNewLine) {
+            window.picklistNextScanNewLine = false;
+            setNewLineHintVisible(false);
+        }
+
         scanLock = true;
-        const snapshot = value;
         input.value = '';
-        onScanComplete(snapshot);
+        onScanComplete(value, { forceNewLine, scanRowWasEmpty });
 
         setTimeout(() => {
             scanLock = false;
-        }, 400);
+        }, 600);
     };
 
     input.addEventListener('input', () => {
+        clearTimeout(nameScanTimer);
         const value = input.value.trim();
+        if (!value) return;
+
         if (isCompleteBarcodeScan(extractScanDigits(value))) {
             finish();
             return;
         }
-        if (allowNameScans && shouldFinishWarehouseScan(value)) {
+
+        if (!allowNameScans) return;
+        if (isPartialBarcodeOnly(value)) return;
+
+        // Scanner types char-by-char: wait until typing stops (do not finish at 6 letters).
+        nameScanTimer = setTimeout(() => {
+            if (scanLock) return;
+            const v = input.value.trim();
+            if (!v || isPartialBarcodeOnly(v)) return;
             finish();
-        }
+        }, 280);
     });
 
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === 'Tab') {
             e.preventDefault();
+            clearTimeout(nameScanTimer);
             finish();
         }
     });
-
-    if (allowNameScans) {
-        input.addEventListener('blur', () => {
-            const value = input.value.trim();
-            if (shouldFinishWarehouseScan(value)) {
-                finish();
-            }
-        });
-    }
 
     skuTd.appendChild(input);
     skuTd.dataset.scanBound = '1';
@@ -408,6 +436,8 @@ window.resetPicklistPage = function() {
     clearPicklistStorage();
     window.picklistAllowUnload = true;
     window.picklistNextScanNewLine = false;
+    window.__blockMergeForSku = null;
+    window.__blockMergeUntil = 0;
     setNewLineHintVisible(false);
 
     document.querySelectorAll('.order-info [contenteditable], .table-footer [contenteditable]').forEach(el => {

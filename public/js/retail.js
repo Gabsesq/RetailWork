@@ -20,7 +20,7 @@ function createRow() {
     const tr = document.createElement('tr');
 
     const skuTd = document.createElement('td');
-    createSkuInput(skuTd, (value) => processSkuRow(skuTd, value));
+    createSkuInput(skuTd, (value, scanOpts) => processSkuRow(skuTd, value, scanOpts));
     tr.appendChild(skuTd);
 
     const lotTd = document.createElement('td');
@@ -91,14 +91,14 @@ function setupRetailRow(tr, skuTd, skuName) {
     tr.children[4].textContent = '1';
 }
 
-function processSkuRow(skuTd, scannedValue) {
+function processSkuRow(skuTd, scannedValue, scanOptions) {
     handleSkuScan(skuTd, scannedValue, {
         countCol: 4,
         setupRow: setupRetailRow,
         clearScanRow: clearRetailScanRow,
         onClearRow: (tr) => clearRetailScanRow(tr),
         onAfterScan: checkForEmptyRow
-    });
+    }, scanOptions);
 }
 
 function handleLotSelection(event) {

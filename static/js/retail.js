@@ -98,7 +98,7 @@ function processSkuRow(skuTd, scannedValue, scanOptions) {
         clearScanRow: clearRetailScanRow,
         onClearRow: (tr) => clearRetailScanRow(tr),
         onAfterScan: checkForEmptyRow
-    });
+    }, scanOptions);
 }
 
 function handleLotSelection(event) {
