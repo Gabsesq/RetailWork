@@ -173,6 +173,59 @@ function processSkuRow(skuTd, scannedValue) {
         const skuName = resolveSkuFromInput(inputValue);
         if (!skuName) return;
 
+        if (!shouldMergeSkuScan()) {
+            let targetTr = tr;
+            let targetSkuTd = skuTd;
+
+            if (getSkuCellText(skuTd).trim()) {
+                const emptyRow = findEmptySkuRow();
+                if (emptyRow) {
+                    targetTr = emptyRow;
+                    targetSkuTd = emptyRow.children[0];
+                }
+            }
+
+            setSkuCellText(targetSkuTd, skuName);
+            const lotCell = targetTr.children[1];
+            const umCell = targetTr.children[2];
+            umCell.textContent = 'CS';
+
+            const lotSelect = document.createElement('select');
+            lotSelect.appendChild(new Option('', ''));
+            lotSelect.addEventListener('change', handleLotSelection);
+            lotCell.innerHTML = '';
+            lotCell.appendChild(lotSelect);
+            lotCell.contentEditable = false;
+            updateLotOptions(lotSelect, skuName);
+
+            const countCell = targetTr.children[3];
+            countCell.textContent = '1';
+            validateAndUpdateCount(countCell);
+
+            if (targetTr !== tr) {
+                setSkuCellText(skuTd, '');
+                Array.from(tr.children).forEach((cell, idx) => {
+                    if (idx === 0) return;
+                    cell.textContent = '';
+                    if (cell.querySelector('select')) {
+                        cell.innerHTML = '';
+                        cell.contentEditable = true;
+                    }
+                });
+            }
+
+            focusNextEmptySkuCell();
+
+            const allRows = Array.from(document.querySelectorAll('#excel-table tr'));
+            const hasEmptyRow = allRows.some(row => !getSkuCellText(row.children[0]).trim());
+            if (!hasEmptyRow) {
+                document.getElementById('excel-table').appendChild(createRow());
+            }
+
+            updateTotals();
+            return;
+        }
+
         const existingRow = findSkuRow(skuName);
         if (existingRow) {
             const countCell = existingRow.children[3];
@@ -332,6 +385,9 @@ document.getElementById('clearButton').addEventListener('click', function() {
         const tbody = document.getElementById('excel-table');
         tbody.innerHTML = '';
         localStorage.removeItem('picklistState');
+        if (window.PicklistLotMode) {
+            PicklistLotMode.setMode(PicklistLotMode.SAME_LOT);
+        }
         renderTable();
     }
 }); 

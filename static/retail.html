@@ -19,6 +19,15 @@
     </div>
 
     <h1 class="header">RETAIL PICKLIST / PALLET CONFIRMATION</h1>
+
+    <div class="lot-mode-bar" id="lotModeBar">
+        <div class="lot-mode-buttons">
+            <button type="button" id="sameLotBtn" class="lot-mode-btn active">Same lot — add count</button>
+            <button type="button" id="newLotBtn" class="lot-mode-btn">New lot — new line</button>
+        </div>
+        <p class="lot-mode-banner" id="newLotBanner" hidden>Next scans start a new line (pick a different lot).</p>
+    </div>
+
     <div class="order-info">
         <div class="info-row">
             <div class="info-item">
@@ -63,6 +72,7 @@
     </div>
 
     <script src="/js/picklist-toggle.js"></script>
+    <script src="/js/picklist-lot-mode.js"></script>
     <script src="/js/constants.js"></script>
     <script src="/js/retail.js"></script>
 </body>

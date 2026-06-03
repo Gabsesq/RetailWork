@@ -143,6 +143,29 @@ function processSkuRow(skuTd, scannedValue) {
 
     if (!skuName) return;
 
+    if (!shouldMergeSkuScan()) {
+        let targetTr = tr;
+        let targetSkuTd = skuTd;
+
+        if (getSkuCellText(skuTd).trim()) {
+            const emptyRow = findEmptySkuRow();
+            if (emptyRow) {
+                targetTr = emptyRow;
+                targetSkuTd = emptyRow.children[0];
+            }
+        }
+
+        setupNewRetailRow(targetTr, targetSkuTd, skuName);
+
+        if (targetTr !== tr) {
+            clearRetailScanRow(tr);
+        }
+
+        focusNextEmptySkuCell();
+        checkForEmptyRow();
+        return;
+    }
+
     const existingRow = findSkuRow(skuName);
     if (existingRow) {
         const countCell = existingRow.children[4];
@@ -229,6 +252,9 @@ document.getElementById('clearButton').addEventListener('click', function() {
         const tbody = document.getElementById("excel-table");
         tbody.innerHTML = '';
         localStorage.removeItem('picklistState');
+        if (window.PicklistLotMode) {
+            PicklistLotMode.setMode(PicklistLotMode.SAME_LOT);
+        }
         renderTable();
     }
 });

@@ -181,6 +181,20 @@ function findSkuRow(skuName) {
     return null;
 }
 
+function findEmptySkuRow() {
+    for (const row of document.querySelectorAll('#excel-table tr')) {
+        const skuCell = row.children[0];
+        if (skuCell && !getSkuCellText(skuCell).trim()) {
+            return row;
+        }
+    }
+    return null;
+}
+
+function shouldMergeSkuScan() {
+    return !(window.PicklistLotMode && PicklistLotMode.isNewLot());
+}
+
 function clearPicklistRow(tr) {
     Array.from(tr.children).forEach(cell => {
         if (cell.querySelector('select')) {

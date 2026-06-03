@@ -177,6 +177,54 @@ tr:nth-child(even) td select {
     color: white;
 }
 
+.lot-mode-bar {
+    margin: 0 0 12px;
+    padding: 12px;
+    border: 1px solid #ccc;
+    background: #f9f9f9;
+    text-align: center;
+}
+
+.lot-mode-bar--new-lot {
+    border-color: #e67e22;
+    background: #fff4e6;
+}
+
+.lot-mode-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+}
+
+.lot-mode-btn {
+    padding: 12px 18px;
+    font-size: 15px;
+    font-weight: bold;
+    border: 2px solid #333;
+    border-radius: 8px;
+    background: #fff;
+    color: #333;
+    cursor: pointer;
+}
+
+.lot-mode-btn.active {
+    background: #333;
+    color: #fff;
+}
+
+.lot-mode-bar--new-lot .lot-mode-btn.active#newLotBtn {
+    background: #d35400;
+    border-color: #d35400;
+}
+
+.lot-mode-banner {
+    margin: 10px 0 0;
+    font-size: 14px;
+    font-weight: bold;
+    color: #b45309;
+}
+
 .template-toggle {
     display: flex;
     justify-content: center;
@@ -245,7 +293,7 @@ tr:nth-child(even) td select {
 }
 
 @media print {
-    .home-link, .button-container, .template-toggle {
+    .home-link, .button-container, .template-toggle, .lot-mode-bar {
         display: none;
     }
     
