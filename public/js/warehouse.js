@@ -21,7 +21,7 @@ function createRow() {
     const tr = document.createElement('tr');
 
     const skuTd = document.createElement('td');
-    createSkuInput(skuTd, (value) => processSkuRow(skuTd, value));
+    createSkuInput(skuTd, (value) => processSkuRow(skuTd, value), { allowNameScans: true });
     tr.appendChild(skuTd);
 
     const lotTd = document.createElement('td');

@@ -246,7 +246,16 @@ function handleSkuScan(skuTd, scannedValue, config) {
     config.onAfterScan();
 }
 
-function createSkuInput(skuTd, onScanComplete) {
+function looksLikeWarehouseName(value) {
+    const v = (value || '').trim();
+    if (!v || /^\d+$/.test(v)) return false;
+    if (!/[A-Za-z]/.test(v)) return false;
+    if (v.includes('-')) return v.length >= 6;
+    return v.length >= 3;
+}
+
+function createSkuInput(skuTd, onScanComplete, options) {
+    const allowNameScans = options && options.allowNameScans;
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'sku-input';
@@ -264,7 +273,12 @@ function createSkuInput(skuTd, onScanComplete) {
     };
 
     input.addEventListener('input', () => {
-        if (isCompleteBarcodeScan(extractScanDigits(input.value))) {
+        const value = input.value.trim();
+        if (isCompleteBarcodeScan(extractScanDigits(value))) {
+            finish();
+            return;
+        }
+        if (allowNameScans && looksLikeWarehouseName(value)) {
             finish();
         }
     });
@@ -275,6 +289,16 @@ function createSkuInput(skuTd, onScanComplete) {
             finish();
         }
     });
+
+    if (allowNameScans) {
+        input.addEventListener('blur', () => {
+            const value = input.value.trim();
+            if (!value) return;
+            if (isCompleteBarcodeScan(extractScanDigits(value)) || looksLikeWarehouseName(value)) {
+                finish();
+            }
+        });
+    }
 
     skuTd.appendChild(input);
     skuTd.dataset.scanBound = '1';
