@@ -45,6 +45,17 @@ table {
     border: 2px solid black;
 }
 
+td input.sku-input {
+    width: 100%;
+    box-sizing: border-box;
+    border: none;
+    background: transparent;
+    font: inherit;
+    padding: 4px 2px;
+    margin: 0;
+    outline: none;
+}
+
 th {
     background-color: black;
     color: white;

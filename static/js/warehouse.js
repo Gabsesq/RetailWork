@@ -6,7 +6,6 @@ window.onload = async () => {
     try {
         await loadLotCodes();
         renderTable();
-        restoreState();
     } catch (error) {
         console.error('Error initializing warehouse:', error);
     }
@@ -39,8 +38,7 @@ function createRow() {
     
     // SKU cell
     const skuTd = document.createElement("td");
-    skuTd.contentEditable = true;
-    attachSkuScanHandlers(skuTd, () => processSkuRow(skuTd));
+    createSkuInput(skuTd, () => processSkuRow(skuTd));
     tr.appendChild(skuTd);
     
     // LOT cell
@@ -109,7 +107,7 @@ function validateAndUpdateCount(countCell) {
         const skuCell = tr.children[0];
         
         // If there's no SKU, don't allow count
-        if (!skuCell.textContent.trim()) {
+        if (!getSkuCellText(skuCell).trim()) {
             countCell.textContent = '';
             updateTotals();
             return;
@@ -125,7 +123,7 @@ function validateAndUpdateCount(countCell) {
         
         // If count is not a valid number or is 0, reset to 1 or empty
         if (isNaN(numCount) || numCount === 0) {
-            if (skuCell.textContent.trim()) {
+            if (getSkuCellText(skuCell).trim()) {
                 numCount = 1;
             } else {
                 numCount = '';
@@ -146,21 +144,25 @@ window.reattachSkuListeners = function() {
     document.querySelectorAll('#excel-table tr').forEach(tr => {
         const skuTd = tr.children[0];
         if (!skuTd || skuTd.dataset.scanBound === '1') return;
-        attachSkuScanHandlers(skuTd, () => processSkuRow(skuTd));
+        createSkuInput(skuTd, () => processSkuRow(skuTd));
     });
 };
 
-function processSkuRow(td) {
+function processSkuRow(skuTd) {
     try {
-        const tr = td.parentElement;
-        const inputValue = td.textContent.trim();
+        const tr = skuTd.parentElement;
+        const inputValue = getSkuCellText(skuTd).trim();
 
         if (!inputValue) {
             Array.from(tr.children).forEach(cell => {
-                cell.textContent = '';
-                if (cell.firstChild && cell.firstChild.tagName === 'SELECT') {
-                    cell.innerHTML = '';
-                    cell.contentEditable = true;
+                if (cell === skuTd) {
+                    setSkuCellText(cell, '');
+                } else {
+                    cell.textContent = '';
+                    if (cell.querySelector('select')) {
+                        cell.innerHTML = '';
+                        cell.contentEditable = true;
+                    }
                 }
             });
             updateTotals();
@@ -174,23 +176,21 @@ function processSkuRow(td) {
         if (existingRow) {
             const countCell = existingRow.children[3];
             countCell.textContent = (parseInt(countCell.textContent, 10) || 0) + 1;
-            window.suppressSkuScanInput = true;
-            Array.from(tr.children).forEach(cell => {
+            setSkuCellText(skuTd, '');
+            Array.from(tr.children).forEach((cell, idx) => {
+                if (idx === 0) return;
                 cell.textContent = '';
                 if (cell.querySelector('select')) {
                     cell.innerHTML = '';
                     cell.contentEditable = true;
                 }
             });
-            setTimeout(() => {
-                window.suppressSkuScanInput = false;
-                focusNextEmptySkuCell();
-            }, 50);
+            focusNextEmptySkuCell();
             updateTotals();
             return;
         }
 
-        td.textContent = skuName;
+        setSkuCellText(skuTd, skuName);
         const lotCell = tr.children[1];
         const umCell = tr.children[2];
         umCell.textContent = "CS";
@@ -248,7 +248,7 @@ function updateTotals() {
             const pallet2Cell = row.children[5];
             
             // Only count if there's a valid SKU
-            if (skuCell.textContent.trim()) {
+            if (getSkuCellText(skuCell).trim()) {
                 const count = parseInt(countCell.textContent) || 0;
                 total += count;
                 

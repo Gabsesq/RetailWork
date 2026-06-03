@@ -125,30 +125,34 @@ window.updateLotOptions = function(select, sku) {
     }
 };
 
-window.suppressSkuScanInput = false;
-
-// Strip scanner suffix noise (Enter, tabs, etc.) — Zebra often leaves non-digits in the cell.
+// Strip scanner suffix noise (Enter, tabs, etc.)
 function extractScanDigits(text) {
     return (text || '').replace(/\D/g, '');
 }
 
-function isIncompleteBarcodeScan(value) {
-    const v = extractScanDigits(value) || (value || '').trim();
-    if (!v || !/^\d+$/.test(v)) return false;
-    if (v.startsWith('8') && v.length < 12) return true;
-    if (v.startsWith('1') && v.length < 13) return true;
-    return false;
+function getSkuCellText(skuTd) {
+    const input = skuTd.querySelector('input.sku-input');
+    if (input) return input.value;
+    return skuTd.textContent || '';
 }
 
-function isCompleteBarcodeScan(value) {
-    const v = extractScanDigits(value);
-    if (!v) return false;
-    if (/^\d{12}$/.test(v) && v.startsWith('8')) return true;
-    if (/^\d{13}$/.test(v) && v.startsWith('1') && v.substring(1).startsWith('8')) return true;
-    return false;
+function setSkuCellText(skuTd, text) {
+    const input = skuTd.querySelector('input.sku-input');
+    if (input) {
+        input.value = text;
+        return;
+    }
+    skuTd.textContent = text;
 }
 
-let skuScanProcessing = false;
+function focusSkuCell(skuTd) {
+    const input = skuTd.querySelector('input.sku-input');
+    if (input) {
+        input.focus();
+        return;
+    }
+    skuTd.focus();
+}
 
 function resolveSkuFromInput(inputValue) {
     const digits = extractScanDigits(inputValue);
@@ -170,7 +174,7 @@ function findExistingSkuRow(skuName, excludeTr) {
 
     for (const row of rows) {
         if (row === excludeTr) continue;
-        const text = row.children[0].textContent.trim();
+        const text = getSkuCellText(row.children[0]).trim();
         if (!text) continue;
         if (normalizeSkuName(text) === normalized || text === skuName) {
             return row;
@@ -193,67 +197,64 @@ function focusNextEmptySkuCell() {
     const rows = document.querySelectorAll('#excel-table tr');
     for (const row of rows) {
         const skuCell = row.children[0];
-        if (skuCell && !skuCell.textContent.trim()) {
-            skuCell.focus();
+        if (skuCell && !getSkuCellText(skuCell).trim()) {
+            focusSkuCell(skuCell);
             return;
         }
     }
 }
 
-function attachSkuScanHandlers(skuCell, processRow) {
-    let manualTimer;
+function isCompleteBarcodeScan(value) {
+    const v = extractScanDigits(value);
+    if (!v) return false;
+    if (/^\d{12}$/.test(v) && v.startsWith('8')) return true;
+    if (/^\d{13}$/.test(v) && v.startsWith('1') && v.substring(1).startsWith('8')) return true;
+    return false;
+}
 
-    const runProcess = () => {
-        if (window.suppressSkuScanInput || skuScanProcessing) return;
+// Plain <input> — scanner types digits in like any other app. "Process" = convert
+// barcode to SKU name, update count, fill lot dropdown (you don't press anything).
+function createSkuInput(skuTd, onScanComplete) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'sku-input';
+    input.setAttribute('autocomplete', 'off');
+    input.setAttribute('autocorrect', 'off');
+    input.setAttribute('autocapitalize', 'off');
+    input.setAttribute('spellcheck', 'false');
 
-        const raw = skuCell.textContent.trim();
-        const digits = extractScanDigits(raw);
-        const scanValue = digits || raw;
+    let finishTimer;
+    let lastRunAt = 0;
 
-        if (!scanValue || isIncompleteBarcodeScan(scanValue)) return;
-
-        if (isCompleteBarcodeScan(scanValue)) {
-            skuCell.textContent = digits;
-        }
-
-        skuScanProcessing = true;
-        try {
-            processRow();
-        } finally {
-            setTimeout(() => {
-                skuScanProcessing = false;
-            }, 250);
-        }
+    const runOnce = () => {
+        const value = input.value.trim();
+        if (!value) return;
+        const now = Date.now();
+        if (now - lastRunAt < 200) return;
+        lastRunAt = now;
+        onScanComplete();
     };
 
-    // Manual typing only — barcodes are handled on Enter (scanner suffix).
-    skuCell.addEventListener('input', () => {
-        if (window.suppressSkuScanInput) return;
-
-        const raw = skuCell.textContent.trim();
-        if (!raw) return;
-
-        const digits = extractScanDigits(raw);
-        if (isIncompleteBarcodeScan(digits || raw)) return;
-        if (isCompleteBarcodeScan(digits || raw)) return;
-
-        clearTimeout(manualTimer);
-        manualTimer = setTimeout(runProcess, 500);
+    // When a full barcode is in the box (12 or 13 digits), run after scan finishes.
+    input.addEventListener('input', () => {
+        clearTimeout(finishTimer);
+        const digits = extractScanDigits(input.value);
+        if (isCompleteBarcodeScan(digits)) {
+            finishTimer = setTimeout(runOnce, 80);
+        }
     });
 
-    skuCell.addEventListener('keydown', (e) => {
-        // Scanners usually end with Enter; some are configured to send Tab.
-        if (e.key !== 'Enter' && e.key !== 'Tab') return;
-        e.preventDefault();
-        clearTimeout(manualTimer);
-
-        // Mobile scanners often fire Enter/Tab before the last digit is in the DOM.
-        requestAnimationFrame(() => {
-            requestAnimationFrame(runProcess);
-        });
+    // Many scanners auto-send Enter at the end of the scan (you never touch it).
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault();
+            clearTimeout(finishTimer);
+            runOnce();
+        }
     });
 
-    skuCell.dataset.scanBound = '1';
+    skuTd.appendChild(input);
+    skuTd.dataset.scanBound = '1';
 }
 
 // Shared functionality
@@ -266,9 +267,11 @@ function checkForEmptyRow() {
     
     const lastRow = rows[rows.length - 1];
     let hasContent = false;
-    Array.from(lastRow.children).forEach(cell => {
+    Array.from(lastRow.children).forEach((cell, idx) => {
         if (cell.querySelector('select')) {
             if (cell.querySelector('select').value) hasContent = true;
+        } else if (idx === 0) {
+            if (getSkuCellText(cell).trim()) hasContent = true;
         } else if (cell.textContent.trim()) {
             if (cell !== lastRow.children[2] || cell.textContent.trim() !== "EA") {
                 hasContent = true;
@@ -383,21 +386,6 @@ function getElementPath(el) {
     return path.join(" > ");
 }
 
-// Auto-save every 5 seconds
-setInterval(saveState, 5000);
-
-// Add this to prevent accidental navigation
-window.addEventListener('beforeunload', (e) => {
-    const tbody = document.getElementById("excel-table");
-    if (!tbody) return;
-    if (tbody.getElementsByTagName("tr").length > 1 && 
-        Array.from(tbody.getElementsByTagName("td")).some(td => td.textContent.trim())) {
-        e.preventDefault();
-        e.returnValue = '';
-    }
-});
-
-// Add at the top of constants.js
 window.addEventListener('online', function() {
     console.log('Network connection restored');
     loadLotCodes(); // Reload lot codes when connection is restored
