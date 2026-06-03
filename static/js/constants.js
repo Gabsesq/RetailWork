@@ -125,6 +125,69 @@ window.updateLotOptions = function(select, sku) {
     }
 };
 
+// Scanner wedge keyboards type one character at a time. Ignore partial barcodes
+// until the full code is present (or Enter is pressed).
+function isIncompleteBarcodeScan(value) {
+    const v = (value || '').trim();
+    if (!v || !/^\d+$/.test(v)) return false;
+    if (v.startsWith('8') && v.length < 12) return true;
+    if (v.startsWith('1') && v.length < 13) return true;
+    return false;
+}
+
+function isCompleteBarcodeScan(value) {
+    const v = (value || '').trim();
+    if (/^\d{12}$/.test(v) && v.startsWith('8')) return true;
+    if (/^\d{13}$/.test(v) && v.startsWith('1') && v.substring(1).startsWith('8')) return true;
+    return false;
+}
+
+const skuScanDedupe = { cell: null, value: '', at: 0 };
+
+function shouldSkipDuplicateSkuProcess(cell, value) {
+    const now = Date.now();
+    if (skuScanDedupe.cell === cell && skuScanDedupe.value === value && now - skuScanDedupe.at < 400) {
+        return true;
+    }
+    skuScanDedupe.cell = cell;
+    skuScanDedupe.value = value;
+    skuScanDedupe.at = now;
+    return false;
+}
+
+function attachSkuScanHandlers(skuCell, processRow) {
+    let debounceTimer;
+
+    const runProcess = () => {
+        const value = skuCell.textContent.trim();
+        if (!value || isIncompleteBarcodeScan(value)) return;
+        if (shouldSkipDuplicateSkuProcess(skuCell, value)) return;
+        processRow();
+    };
+
+    skuCell.addEventListener('input', () => {
+        const value = skuCell.textContent.trim();
+        if (isIncompleteBarcodeScan(value)) return;
+
+        clearTimeout(debounceTimer);
+        if (isCompleteBarcodeScan(value)) {
+            debounceTimer = setTimeout(runProcess, 150);
+            return;
+        }
+        debounceTimer = setTimeout(runProcess, 400);
+    });
+
+    skuCell.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            clearTimeout(debounceTimer);
+            runProcess();
+        }
+    });
+
+    skuCell.dataset.scanBound = '1';
+}
+
 // Shared functionality
 function checkForEmptyRow() {
     const tbody = document.getElementById("excel-table");
@@ -173,6 +236,8 @@ document.querySelector('.so-number-box')?.addEventListener('input', function() {
 // Add these functions to constants.js
 function saveState() {
     const tbody = document.getElementById("excel-table");
+    if (!tbody) return;
+
     const orderInfo = document.querySelectorAll('.order-info [contenteditable]');
     const tableFooter = document.querySelectorAll('.table-footer [contenteditable]');
     
@@ -215,8 +280,10 @@ function restoreState() {
                 if (el) el.textContent = item.content;
             });
             
-            // Reattach event listeners
+            // Reattach event listeners (restored HTML drops listeners)
             addCountCellListeners();
+            if (window.reattachSkuListeners) window.reattachSkuListeners();
+            if (window.addFormattingToExistingCells) window.addFormattingToExistingCells();
             if (window.addUmCellListeners) addUmCellListeners();
             if (window.addPalletCellListeners) addPalletCellListeners();
         } else {
@@ -254,6 +321,7 @@ setInterval(saveState, 5000);
 // Add this to prevent accidental navigation
 window.addEventListener('beforeunload', (e) => {
     const tbody = document.getElementById("excel-table");
+    if (!tbody) return;
     if (tbody.getElementsByTagName("tr").length > 1 && 
         Array.from(tbody.getElementsByTagName("td")).some(td => td.textContent.trim())) {
         e.preventDefault();

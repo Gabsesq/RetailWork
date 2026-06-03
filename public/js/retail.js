@@ -27,7 +27,7 @@ function createRow() {
     // SKU cell
     const skuTd = document.createElement("td");
     skuTd.contentEditable = true;
-    skuTd.addEventListener("input", handleSkuInput);
+    attachSkuScanHandlers(skuTd, () => processSkuRow(skuTd));
     addCellFormatting(skuTd);
     tr.appendChild(skuTd);
     
@@ -91,14 +91,24 @@ function addFormattingToExistingCells() {
     });
 }
 
+window.addFormattingToExistingCells = addFormattingToExistingCells;
+
+window.reattachSkuListeners = function() {
+    document.querySelectorAll('#excel-table tr').forEach(tr => {
+        const skuTd = tr.children[0];
+        if (!skuTd || skuTd.dataset.scanBound === '1') return;
+        attachSkuScanHandlers(skuTd, () => processSkuRow(skuTd));
+        addCellFormatting(skuTd);
+    });
+};
+
 // Add a helper function to check if SKU should use "Set"
 function shouldUseSet(sku) {
     const upperSku = sku.toUpperCase();
     return upperSku.startsWith("DB") || upperSku.startsWith("PR-INT-CS");
 }
 
-function handleSkuInput(event) {
-    const td = event.target;
+function processSkuRow(td) {
     const tr = td.parentElement;
     const inputValue = td.textContent.trim();
     

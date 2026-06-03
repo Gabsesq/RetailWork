@@ -27,7 +27,7 @@ function createRow() {
     // SKU cell
     const skuTd = document.createElement("td");
     skuTd.contentEditable = true;
-    skuTd.addEventListener("input", handleSkuInput);
+    attachSkuScanHandlers(skuTd, () => processSkuRow(skuTd));
     addCellFormatting(skuTd);
     tr.appendChild(skuTd);
     
@@ -91,14 +91,24 @@ function addFormattingToExistingCells() {
     });
 }
 
+window.addFormattingToExistingCells = addFormattingToExistingCells;
+
+window.reattachSkuListeners = function() {
+    document.querySelectorAll('#excel-table tr').forEach(tr => {
+        const skuTd = tr.children[0];
+        if (!skuTd || skuTd.dataset.scanBound === '1') return;
+        attachSkuScanHandlers(skuTd, () => processSkuRow(skuTd));
+        addCellFormatting(skuTd);
+    });
+};
+
 // Add a helper function to check if SKU should use "Set"
 function shouldUseSet(sku) {
     const upperSku = sku.toUpperCase();
     return upperSku.startsWith("DB") || upperSku.startsWith("PR-INT-CS");
 }
 
-function handleSkuInput(event) {
-    const td = event.target;
+function processSkuRow(td) {
     const tr = td.parentElement;
     const inputValue = td.textContent.trim();
     
@@ -259,25 +269,38 @@ function handleLotSelection(event) {
 document.getElementById('printButton').addEventListener('click', async function() {
     const soNumberBox = document.querySelector('.so-number-box');
     const soNumber = soNumberBox.textContent.trim();
-    
     if (!soNumber) {
         soNumberBox.classList.add('required');
         alert('Please enter a PO/SO number before printing');
         soNumberBox.focus();
         return;
     }
-    
     soNumberBox.classList.remove('required');
-    
-    // Capture and store data before printing
-    try {
-        await captureAndStoreLotsData(soNumber, 'retail');
-        window.print();
-    } catch (error) {
-        console.error('Error storing lots data:', error);
-        // Still print even if storage fails
-        window.print();
+
+    // Gather table data
+    const rows = document.querySelectorAll('#excel-table tr');
+    for (const row of rows) {
+        const cells = row.children;
+        const sku = cells[0]?.textContent.trim();
+        const lotCode = cells[1]?.textContent.trim();
+        const quantity = cells[4]?.textContent.trim() || cells[3]?.textContent.trim();
+        const unit = cells[3]?.textContent.trim() || cells[2]?.textContent.trim();
+        if (sku && lotCode) {
+            await fetch('/api/lots', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    soNumber,
+                    sku,
+                    lotCode,
+                    quantity,
+                    unit,
+                    template: 'retail'
+                })
+            });
+        }
     }
+    window.print();
 });
 
 // Add clear functionality
@@ -291,63 +314,4 @@ document.getElementById('clearButton').addEventListener('click', function() {
         tbody.innerHTML = '';
         renderTable();
     }
-});
-
-// Function to capture and store lots data
-async function captureAndStoreLotsData(soNumber, template) {
-    const tbody = document.getElementById('excel-table');
-    const rows = tbody.getElementsByTagName('tr');
-    const entries = [];
-    
-    // Collect data from all rows with SKU data
-    Array.from(rows).forEach(row => {
-        const skuCell = row.children[0];
-        const lotCell = row.children[1];
-        const bbCell = row.children[2];
-        const umCell = row.children[3];
-        const countCell = row.children[4];
-        
-        const sku = skuCell.textContent.trim();
-        if (sku) {
-            let lotCode = '';
-            if (lotCell.querySelector('select')) {
-                lotCode = lotCell.querySelector('select').value;
-            } else {
-                lotCode = lotCell.textContent.trim();
-            }
-            
-            const unit = umCell.textContent.trim();
-            const quantity = countCell.textContent.trim();
-            
-            entries.push({
-                soNumber,
-                sku,
-                lotCode,
-                quantity,
-                unit,
-                template
-            });
-        }
-    });
-    
-    // Store each entry in the database
-    for (const entry of entries) {
-        try {
-            const response = await fetch('/api/lots', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(entry)
-            });
-            
-            if (!response.ok) {
-                console.error('Failed to store entry:', entry);
-            }
-        } catch (error) {
-            console.error('Error storing entry:', error);
-        }
-    }
-    
-    console.log(`Stored ${entries.length} entries for SO/PO: ${soNumber}`);
-} 
+}); 

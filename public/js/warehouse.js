@@ -40,7 +40,7 @@ function createRow() {
     // SKU cell
     const skuTd = document.createElement("td");
     skuTd.contentEditable = true;
-    skuTd.addEventListener("input", handleSkuInput);
+    attachSkuScanHandlers(skuTd, () => processSkuRow(skuTd));
     tr.appendChild(skuTd);
     
     // LOT cell
@@ -142,9 +142,16 @@ function validateAndUpdateCount(countCell) {
     }
 }
 
-function handleSkuInput(event) {
+window.reattachSkuListeners = function() {
+    document.querySelectorAll('#excel-table tr').forEach(tr => {
+        const skuTd = tr.children[0];
+        if (!skuTd || skuTd.dataset.scanBound === '1') return;
+        attachSkuScanHandlers(skuTd, () => processSkuRow(skuTd));
+    });
+};
+
+function processSkuRow(td) {
     try {
-        const td = event.target;
         const tr = td.parentElement;
         const inputValue = td.textContent.trim();
         
