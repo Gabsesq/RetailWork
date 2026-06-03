@@ -156,6 +156,24 @@ function findSkuRow(skuName, currentTr) {
     return found;
 }
 
+// Prefer the row that already has count/lot set; otherwise the first matching row.
+function findMergeTargetRow(skuName, currentTr) {
+    const rows = Array.from(document.querySelectorAll('#excel-table tr'));
+    let firstMatch = null;
+    let lastCommitted = null;
+
+    for (const row of rows) {
+        if (currentTr && row === currentTr && !getSkuCellText(row.children[0]).trim()) {
+            continue;
+        }
+        if (!skuRowMatchesName(row, skuName)) continue;
+        if (!firstMatch) firstMatch = row;
+        if (isPicklistRowCommitted(row)) lastCommitted = row;
+    }
+
+    return lastCommitted || firstMatch;
+}
+
 function findEmptySkuRow() {
     for (const row of document.querySelectorAll('#excel-table tr')) {
         const skuCell = row.children[0];
@@ -247,15 +265,17 @@ function handleSkuScan(skuTd, scannedValue, config, scanOptions) {
         return;
     }
 
-    const existingRow = findSkuRow(skuName, tr);
-    if (existingRow && scanRowEmpty) {
-        const countCell = existingRow.children[config.countCol];
-        countCell.textContent = String((parseInt(countCell.textContent, 10) || 0) + 1);
-
-        if (existingRow !== tr) {
-            config.clearScanRow(tr);
+    const mergeTarget = findMergeTargetRow(skuName, tr);
+    if (mergeTarget && scanRowEmpty) {
+        if (!isPicklistRowCommitted(mergeTarget)) {
+            config.setupRow(mergeTarget, mergeTarget.children[0], skuName);
         } else {
-            setSkuCellText(skuTd, skuName);
+            const countCell = mergeTarget.children[config.countCol];
+            countCell.textContent = String((parseInt(countCell.textContent, 10) || 0) + 1);
+        }
+
+        if (mergeTarget !== tr) {
+            config.clearScanRow(tr);
         }
 
         config.onAfterScan();
@@ -298,7 +318,8 @@ function canCommitWarehouseSku(value) {
     if (isCompleteBarcodeScan(extractScanDigits(v))) return true;
     if (isPartialBarcodeOnly(v)) return false;
     if (/[A-Za-z]/.test(v)) {
-        if (v.includes('-')) return v.length >= 8;
+        // e.g. 600-SR-HO, 300-SR-HO (9 chars) — must commit when name is complete
+        if (v.includes('-')) return v.length >= 9;
         return v.length >= 3;
     }
     return true;
@@ -324,6 +345,8 @@ function createSkuInput(skuTd, onScanComplete, options) {
         if (!value) return;
         if (allowNameScans && !canCommitWarehouseSku(value)) return;
 
+        clearTimeout(input._whScanTimer);
+
         const tr = skuTd.parentElement;
         const scanRowWasEmpty = !isPicklistRowCommitted(tr);
         const forceNewLine = !!window.picklistNextScanNewLine;
@@ -345,15 +368,26 @@ function createSkuInput(skuTd, onScanComplete, options) {
         const value = input.value.trim();
         if (!value) return;
 
-        // Only auto-finish full 12-digit barcodes. Names wait for Enter (scanner sends Enter at end).
         if (isCompleteBarcodeScan(extractScanDigits(value))) {
             finish();
+            return;
         }
+
+        if (!allowNameScans) return;
+
+        clearTimeout(input._whScanTimer);
+        input._whScanTimer = setTimeout(() => {
+            if (scanLock) return;
+            const v = input.value.trim();
+            if (!canCommitWarehouseSku(v)) return;
+            finish();
+        }, 320);
     });
 
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
+            clearTimeout(input._whScanTimer);
             finish();
         }
     });
