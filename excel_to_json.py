@@ -195,22 +195,7 @@ def convert_excel_to_json():
         json.dump(lot_codes, f, indent=2)
     with open('public/js/lot_codes.json', 'w') as f:
         json.dump(lot_codes, f, indent=2)
-    
-    # Trigger deployment by adding a space to main HTML file
-    try:
-        with open('public/index.html', 'r') as f:
-            content = f.read()
-        
-        # Add a space at the end if it doesn't already have one
-        if not content.endswith(' '):
-            content += ' '
-            
-        with open('public/index.html', 'w') as f:
-            f.write(content)
-        print("Added deployment trigger to index.html")
-    except Exception as e:
-        print(f"Could not update index.html: {e}")
-    
+
     print("\nSaved updated lot codes to JSON files")
 
 if __name__ == "__main__":
