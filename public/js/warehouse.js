@@ -3,8 +3,9 @@ window.createPicklistRow = createRow;
 
 window.onload = async () => {
     clearPicklistStorage();
-    await loadLotCodes();
     renderTable();
+    setupWarehouseScanBar();
+    loadLotCodes();
 };
 
 function renderTable() {
@@ -22,7 +23,6 @@ function createRow() {
     const tr = document.createElement('tr');
 
     const skuTd = document.createElement('td');
-    createSkuInput(skuTd, (value, scanOpts) => processSkuRow(skuTd, value, scanOpts), { allowNameScans: true });
     tr.appendChild(skuTd);
 
     const lotTd = document.createElement('td');
@@ -49,10 +49,45 @@ function createRow() {
     return tr;
 }
 
+function getWarehouseScanAnchor() {
+    const emptyRow = findEmptySkuRow();
+    if (emptyRow) return emptyRow.children[0];
+    const first = document.querySelector('#excel-table tr');
+    return first ? first.children[0] : null;
+}
+
+function setupWarehouseScanBar() {
+    const host = document.getElementById('warehouseScanHost');
+    if (!host) return;
+
+    host.innerHTML = '';
+    const anchor = document.createElement('div');
+    anchor.className = 'warehouse-scan-anchor';
+    host.appendChild(anchor);
+
+    createSkuInput(anchor, (value, scanOpts) => {
+        const skuTd = getWarehouseScanAnchor();
+        if (!skuTd) return;
+        processSkuRow(skuTd, value, { ...scanOpts, scanRowWasEmpty: true });
+    }, { allowNameScans: true });
+
+    window.refocusWarehouseScan = function() {
+        const input = host.querySelector('input.sku-input');
+        if (input) {
+            setTimeout(() => input.focus(), 0);
+        }
+    };
+
+    window.refocusWarehouseScan();
+}
+
 function clearWarehouseScanRow(tr) {
+    if (isPicklistRowCommitted(tr)) return;
+
     Array.from(tr.children).forEach((cell, idx) => {
         if (idx === 0) {
-            setSkuCellText(cell, '');
+            cell.innerHTML = '';
+            cell.textContent = '';
         } else {
             cell.textContent = '';
             cell.contentEditable = true;
@@ -61,7 +96,8 @@ function clearWarehouseScanRow(tr) {
 }
 
 function setupWarehouseRow(tr, skuTd, skuName) {
-    setSkuCellText(skuTd, skuName);
+    skuTd.innerHTML = '';
+    skuTd.textContent = skuName;
 
     tr.children[2].textContent = 'CS';
 
@@ -93,6 +129,9 @@ function processSkuRow(skuTd, scannedValue, scanOptions) {
         onAfterScan: () => {
             updateTotals();
             checkForEmptyRow();
+            if (typeof window.refocusWarehouseScan === 'function') {
+                window.refocusWarehouseScan();
+            }
         }
     }, scanOptions);
 }
@@ -158,6 +197,8 @@ document.getElementById('printButton').addEventListener('click', async function(
     }
     window.print();
 });
+
+window.setupWarehouseScanBar = setupWarehouseScanBar;
 
 document.getElementById('clearButton').addEventListener('click', function() {
     if (!confirm('Clear all entries? This cannot be undone.')) return;

@@ -24,6 +24,21 @@
         .scan-input {
             margin: 10px 0;
         }
+        .warehouse-scan-bar {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        #warehouseScanHost input.sku-input {
+            width: 100%;
+            max-width: 420px;
+            font-size: 18px;
+            padding: 10px;
+            margin-top: 8px;
+            border: 2px solid #4CAF50;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
         .scan-input input {
             padding: 8px;
             margin-right: 10px;
@@ -87,6 +102,13 @@
 
     <h1 class="header">WAREHOUSE PICKLIST / PALLET CONFIRMATION</h1>
 
+    <div class="warehouse-scan-bar scan-section">
+        <div class="scan-input">
+            <label for="warehouseScanHost"><strong>Scan here</strong> (barcode goes in this box only)</label>
+            <div id="warehouseScanHost"></div>
+        </div>
+    </div>
+
     <div class="picklist-actions">
         <button type="button" id="newLineBtn" class="picklist-new-line-btn">+ New line</button>
         <span class="picklist-hint" id="newLineHint" hidden>Next scan starts a new row</span>
@@ -149,8 +171,8 @@
         <button id="clearButton" class="action-button">Clear</button>
     </div>
 
-    <script src="/js/picklist-toggle.js?v=9"></script>
-    <script src="/js/constants.js?v=9"></script>
-    <script src="/js/warehouse.js?v=9"></script>
+    <script src="/js/picklist-toggle.js?v=10"></script>
+    <script src="/js/constants.js?v=10"></script>
+    <script src="/js/warehouse.js?v=10"></script>
 </body>
 </html> 

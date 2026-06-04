@@ -209,6 +209,27 @@ function isCompleteBarcodeScan(value) {
     return /^\d{12}$/.test(v) && v.startsWith('8');
 }
 
+function isCompleteScanValue(value) {
+    const v = extractScanDigits(value);
+    if (/^\d{12}$/.test(v) && v.startsWith('8')) return true;
+    if (/^\d{13}$/.test(v) && v.startsWith('1') && v.substring(1).startsWith('8')) return true;
+    return false;
+}
+
+function tryAcquirePicklistScan() {
+    if (window.__picklistScanBusy) return false;
+    window.__picklistScanBusy = true;
+    setTimeout(() => {
+        window.__picklistScanBusy = false;
+    }, 900);
+    return true;
+}
+
+function safeClearScanRow(config, tr) {
+    if (isPicklistRowCommitted(tr)) return;
+    config.clearScanRow(tr);
+}
+
 function setNewLineHintVisible(visible) {
     const btn = document.getElementById('newLineBtn');
     const hint = document.getElementById('newLineHint');
@@ -219,7 +240,11 @@ function setNewLineHintVisible(visible) {
 function armNextScanAsNewLine() {
     window.picklistNextScanNewLine = true;
     setNewLineHintVisible(true);
-    focusNextEmptySkuCell();
+    if (typeof window.refocusWarehouseScan === 'function') {
+        window.refocusWarehouseScan();
+    } else {
+        focusNextEmptySkuCell();
+    }
 }
 
 // One scan handler for retail + warehouse.
@@ -258,7 +283,7 @@ function handleSkuScan(skuTd, scannedValue, config, scanOptions) {
         config.setupRow(targetTr, targetSkuTd, skuName);
 
         if (targetTr !== tr) {
-            config.clearScanRow(tr);
+            safeClearScanRow(config, tr);
         }
 
         config.onAfterScan();
@@ -266,25 +291,24 @@ function handleSkuScan(skuTd, scannedValue, config, scanOptions) {
     }
 
     const mergeTarget = findMergeTargetRow(skuName, tr);
-    if (mergeTarget && scanRowEmpty) {
-        if (!isPicklistRowCommitted(mergeTarget)) {
-            config.setupRow(mergeTarget, mergeTarget.children[0], skuName);
-        } else {
-            const countCell = mergeTarget.children[config.countCol];
-            countCell.textContent = String((parseInt(countCell.textContent, 10) || 0) + 1);
-        }
 
+    if (mergeTarget && isPicklistRowCommitted(mergeTarget)) {
+        const countCell = mergeTarget.children[config.countCol];
+        countCell.textContent = String((parseInt(countCell.textContent, 10) || 0) + 1);
         if (mergeTarget !== tr) {
-            config.clearScanRow(tr);
+            safeClearScanRow(config, tr);
         }
-
         config.onAfterScan();
         return;
     }
 
     let targetTr = tr;
     let targetSkuTd = skuTd;
-    if (!scanRowEmpty) {
+
+    if (mergeTarget && scanRowEmpty && !isPicklistRowCommitted(mergeTarget)) {
+        targetTr = mergeTarget;
+        targetSkuTd = mergeTarget.children[0];
+    } else if (!scanRowEmpty && isPicklistRowCommitted(tr)) {
         const emptyRow = findEmptySkuRow();
         if (emptyRow) {
             targetTr = emptyRow;
@@ -295,7 +319,7 @@ function handleSkuScan(skuTd, scannedValue, config, scanOptions) {
     config.setupRow(targetTr, targetSkuTd, skuName);
 
     if (targetTr !== tr) {
-        config.clearScanRow(tr);
+        safeClearScanRow(config, tr);
     }
 
     config.onAfterScan();
@@ -315,7 +339,7 @@ function isPartialBarcodeOnly(value) {
 function canCommitWarehouseSku(value) {
     const v = (value || '').trim();
     if (!v) return false;
-    if (isCompleteBarcodeScan(extractScanDigits(v))) return true;
+    if (isCompleteScanValue(v)) return true;
     if (isPartialBarcodeOnly(v)) return false;
     if (/[A-Za-z]/.test(v)) {
         // e.g. 600-SR-HO, 300-SR-HO (9 chars) — must commit when name is complete
@@ -344,6 +368,7 @@ function createSkuInput(skuTd, onScanComplete, options) {
         const value = input.value.trim();
         if (!value) return;
         if (allowNameScans && !canCommitWarehouseSku(value)) return;
+        if (!tryAcquirePicklistScan()) return;
 
         clearTimeout(input._whScanTimer);
 
@@ -368,8 +393,14 @@ function createSkuInput(skuTd, onScanComplete, options) {
         const value = input.value.trim();
         if (!value) return;
 
-        if (isCompleteBarcodeScan(extractScanDigits(value))) {
-            finish();
+        if (isCompleteScanValue(value)) {
+            clearTimeout(input._whScanTimer);
+            input._whScanTimer = setTimeout(() => {
+                if (scanLock) return;
+                const v = input.value.trim();
+                if (!isCompleteScanValue(v)) return;
+                finish();
+            }, 80);
             return;
         }
 
@@ -381,7 +412,7 @@ function createSkuInput(skuTd, onScanComplete, options) {
             const v = input.value.trim();
             if (!canCommitWarehouseSku(v)) return;
             finish();
-        }, 320);
+        }, 400);
     });
 
     input.addEventListener('keydown', (e) => {
@@ -474,6 +505,9 @@ window.resetPicklistPage = function() {
 
     if (typeof window.renderTable === 'function') {
         window.renderTable();
+    }
+    if (typeof window.setupWarehouseScanBar === 'function') {
+        window.setupWarehouseScanBar();
     }
 };
 
