@@ -1,0 +1,3 @@
+# Updated by excel_to_json.py to trigger Vercel redeploy.
+# Safe to commit — do not use index.html for deploy bumps.
+last_run=manual

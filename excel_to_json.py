@@ -172,6 +172,22 @@ def compare_and_print_new_lots(existing_data, new_data):
     print("=" * 60)
 
 
+DEPLOY_BUMP_PATH = "public/deploy-bump.txt"
+
+
+def bump_deploy_trigger():
+    """Touch a harmless file so Vercel redeploys. Never edit index.html for this."""
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    content = (
+        "# Updated by excel_to_json.py to trigger Vercel redeploy.\n"
+        "# Safe to commit — do not use index.html for deploy bumps.\n"
+        f"last_run={stamp}\n"
+    )
+    with open(DEPLOY_BUMP_PATH, "w", encoding="utf-8") as f:
+        f.write(content)
+    print(f"Updated deploy trigger: {DEPLOY_BUMP_PATH}")
+
+
 def convert_excel_to_json():
     print(f"Reading: {EXCEL_PATH}")
     print(f"Sheet: {SHEET_NAME}")
@@ -195,8 +211,7 @@ def convert_excel_to_json():
     with open("public/js/lot_codes.json", "w") as f:
         json.dump(lot_codes, f, indent=2)
 
-    # lot_codes.json changes are enough to trigger Vercel on push.
-    # Do not edit index.html — a past hack that appended a space wiped the page.
+    bump_deploy_trigger()
 
     print("\nSaved updated lot codes to JSON files")
     wb.close()
