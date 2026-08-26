@@ -419,13 +419,12 @@
         function getBBDate(sku, lotCode) {
             // This function should look up the BB date from your lot codes data
             if (window.LOT_CODES && sku && lotCode) {
-                const normalizedSku = sku.toUpperCase().replace(/\s+/g, '');
-                const matchingSku = Object.keys(window.LOT_CODES).find(key => 
-                    key.toUpperCase().replace(/\s+/g, '') === normalizedSku
-                );
-                
-                if (matchingSku && window.LOT_CODES[matchingSku] && window.LOT_CODES[matchingSku][lotCode]) {
-                    return window.LOT_CODES[matchingSku][lotCode].bb_date;
+                const base = sku.toUpperCase().replace(/[-_]*HEMP$/i, '').replace(/\s+/g, '');
+                for (const key of Object.keys(window.LOT_CODES)) {
+                    const keyBase = key.toUpperCase().replace(/[-_]*HEMP$/i, '').replace(/\s+/g, '');
+                    if (keyBase === base && window.LOT_CODES[key] && window.LOT_CODES[key][lotCode]) {
+                        return window.LOT_CODES[key][lotCode].bb_date;
+                    }
                 }
             }
             return null;

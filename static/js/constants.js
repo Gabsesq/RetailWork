@@ -52,8 +52,10 @@ window.LOT_CODES = {}; // Will be populated from JSON
 // Shared utility functions
 function normalizeSkuName(sku) {
     if (!sku) return '';
+    // Warehouse sometimes suffixes the same product with -HEMP
+    const withoutHemp = String(sku).replace(/[-_]*HEMP$/i, '');
     // Convert to uppercase and remove all spaces and special characters
-    let normalized = sku.toUpperCase().replace(/[\s&-]/g, '');
+    let normalized = withoutHemp.toUpperCase().replace(/[\s&-]/g, '');
     // Special case for 2in1
     if (normalized === '2IN1SKCT') {
         normalized = '2 IN 1-SK-CT';
@@ -64,6 +66,29 @@ function normalizeSkuName(sku) {
     }
     return normalized;
 }
+
+function getLotsForSku(sku) {
+    const merged = {};
+    const target = normalizeSkuName(sku);
+    if (!target || !window.LOT_CODES) return merged;
+
+    Object.keys(window.LOT_CODES).forEach((key) => {
+        if (normalizeSkuName(key) !== target) return;
+        Object.entries(window.LOT_CODES[key] || {}).forEach(([lot, data]) => {
+            const incoming = data || {};
+            const existing = merged[lot];
+            if (!existing) {
+                merged[lot] = incoming;
+                return;
+            }
+            if (!existing.bb_date && incoming.bb_date) {
+                merged[lot] = incoming;
+            }
+        });
+    });
+    return merged;
+}
+window.getLotsForSku = getLotsForSku;
 
 async function loadLotCodes() {
     try {
@@ -108,22 +133,20 @@ window.updateLotOptions = function(select, sku) {
     
     const normalizedInputSku = normalizeSkuName(skuName);
     console.log("Normalized SKU:", normalizedInputSku);
-    
-    const matchingSku = Object.keys(window.LOT_CODES).find(key => 
-        normalizeSkuName(key) === normalizedInputSku
+
+    const lots = getLotsForSku(skuName);
+    const matchingKeys = Object.keys(window.LOT_CODES).filter(
+        (key) => normalizeSkuName(key) === normalizedInputSku
     );
-    
-    console.log("Matching SKU found:", matchingSku);
-    
-    if (matchingSku && window.LOT_CODES[matchingSku]) {
-        const sortedLots = Object.keys(window.LOT_CODES[matchingSku]).sort();
-        console.log("Available lots with BB dates:");
-        sortedLots.forEach(lot => {
-            const bbDate = window.LOT_CODES[matchingSku][lot].bb_date;
-            console.log(`  ${lot}: ${bbDate}`);
-            select.appendChild(new Option(lot, lot));
-        });
-    }
+    console.log("Matching SKUs found:", matchingKeys);
+
+    const sortedLots = Object.keys(lots).sort();
+    console.log("Available lots with BB dates:");
+    sortedLots.forEach((lot) => {
+        const bbDate = lots[lot].bb_date;
+        console.log(`  ${lot}: ${bbDate}`);
+        select.appendChild(new Option(lot, lot));
+    });
 };
 
 // Shared functionality

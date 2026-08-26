@@ -243,13 +243,9 @@ function handleLotSelection(event) {
     const skuName = tr.children[0].textContent.trim();
     const bbCell = tr.children[2];  // B/B cell
     
-    const normalizedInputSku = normalizeSkuName(skuName);
-    const matchingSku = Object.keys(LOT_CODES).find(key => 
-        normalizeSkuName(key) === normalizedInputSku
-    );
-    
-    if (selectedLot && matchingSku && LOT_CODES[matchingSku] && LOT_CODES[matchingSku][selectedLot]) {
-        bbCell.textContent = LOT_CODES[matchingSku][selectedLot].bb_date;
+    const lots = getLotsForSku(skuName);
+    if (selectedLot && lots[selectedLot]) {
+        bbCell.textContent = lots[selectedLot].bb_date || "";
     } else {
         bbCell.textContent = "";
     }
