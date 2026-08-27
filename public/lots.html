@@ -417,12 +417,16 @@
         }
 
         function getBBDate(sku, lotCode) {
-            // This function should look up the BB date from your lot codes data
-            if (window.LOT_CODES && sku && lotCode) {
-                const base = sku.toUpperCase().replace(/[-_]*HEMP$/i, '').replace(/\s+/g, '');
+            if (!sku || !lotCode) return null;
+            if (typeof getLotsForSku === 'function') {
+                const lots = getLotsForSku(sku);
+                if (lots[lotCode] && lots[lotCode].bb_date) {
+                    return lots[lotCode].bb_date;
+                }
+            }
+            if (window.LOT_CODES) {
                 for (const key of Object.keys(window.LOT_CODES)) {
-                    const keyBase = key.toUpperCase().replace(/[-_]*HEMP$/i, '').replace(/\s+/g, '');
-                    if (keyBase === base && window.LOT_CODES[key] && window.LOT_CODES[key][lotCode]) {
+                    if (window.LOT_CODES[key][lotCode] && window.LOT_CODES[key][lotCode].bb_date) {
                         return window.LOT_CODES[key][lotCode].bb_date;
                     }
                 }

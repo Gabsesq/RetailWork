@@ -239,16 +239,7 @@ function handleSkuInput(event) {
 function handleLotSelection(event) {
     const select = event.target;
     const tr = select.closest("tr");
-    const selectedLot = select.value;
-    const skuName = tr.children[0].textContent.trim();
-    const bbCell = tr.children[2];  // B/B cell
-    
-    const lots = getLotsForSku(skuName);
-    if (selectedLot && lots[selectedLot]) {
-        bbCell.textContent = lots[selectedLot].bb_date || "";
-    } else {
-        bbCell.textContent = "";
-    }
+    fillBestByCell(tr);
 }
 
 // Add print functionality
@@ -263,12 +254,17 @@ document.getElementById('printButton').addEventListener('click', async function(
     }
     soNumberBox.classList.remove('required');
 
+    if (typeof fillBestByDatesForPrint === 'function') {
+        fillBestByDatesForPrint();
+    }
+
     // Gather table data
     const rows = document.querySelectorAll('#excel-table tr');
     for (const row of rows) {
         const cells = row.children;
         const sku = cells[0]?.textContent.trim();
-        const lotCode = cells[1]?.textContent.trim();
+        const lotSelect = cells[1]?.querySelector('select');
+        const lotCode = lotSelect ? lotSelect.value : cells[1]?.textContent.trim();
         const quantity = cells[4]?.textContent.trim() || cells[3]?.textContent.trim();
         const unit = cells[3]?.textContent.trim() || cells[2]?.textContent.trim();
         if (sku && lotCode) {

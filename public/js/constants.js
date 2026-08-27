@@ -143,11 +143,44 @@ window.updateLotOptions = function(select, sku) {
     const sortedLots = Object.keys(lots).sort();
     console.log("Available lots with BB dates:");
     sortedLots.forEach((lot) => {
-        const bbDate = lots[lot].bb_date;
+        const bbDate = lots[lot].bb_date || "";
         console.log(`  ${lot}: ${bbDate}`);
-        select.appendChild(new Option(lot, lot));
+        const option = new Option(lot, lot);
+        if (bbDate) option.setAttribute("data-bb", bbDate);
+        select.appendChild(option);
     });
 };
+
+function fillBestByCell(row) {
+    if (!row || row.children.length < 3) return;
+    const skuName = row.children[0].textContent.trim();
+    const lotCell = row.children[1];
+    const bbCell = row.children[2];
+    const select = lotCell.querySelector("select");
+    const selectedLot = select ? select.value : lotCell.textContent.trim();
+    if (!selectedLot) return;
+
+    const fromOption = select?.selectedOptions?.[0]?.getAttribute("data-bb");
+    const lots = typeof getLotsForSku === "function" ? getLotsForSku(skuName) : {};
+    const fromLookup = lots[selectedLot] && lots[selectedLot].bb_date;
+    let bb = fromOption || fromLookup || "";
+
+    if (!bb && window.LOT_CODES) {
+        for (const key of Object.keys(window.LOT_CODES)) {
+            if (window.LOT_CODES[key][selectedLot] && window.LOT_CODES[key][selectedLot].bb_date) {
+                bb = window.LOT_CODES[key][selectedLot].bb_date;
+                break;
+            }
+        }
+    }
+    bbCell.textContent = bb;
+}
+
+function fillBestByDatesForPrint() {
+    document.querySelectorAll("#excel-table tr").forEach(fillBestByCell);
+}
+window.fillBestByDatesForPrint = fillBestByDatesForPrint;
+window.fillBestByCell = fillBestByCell;
 
 // Shared functionality
 function checkForEmptyRow() {

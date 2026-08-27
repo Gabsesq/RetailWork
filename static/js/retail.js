@@ -239,16 +239,7 @@ function handleSkuInput(event) {
 function handleLotSelection(event) {
     const select = event.target;
     const tr = select.closest("tr");
-    const selectedLot = select.value;
-    const skuName = tr.children[0].textContent.trim();
-    const bbCell = tr.children[2];  // B/B cell
-    
-    const lots = getLotsForSku(skuName);
-    if (selectedLot && lots[selectedLot]) {
-        bbCell.textContent = lots[selectedLot].bb_date || "";
-    } else {
-        bbCell.textContent = "";
-    }
+    fillBestByCell(tr);
 }
 
 // Add print functionality
@@ -265,6 +256,10 @@ document.getElementById('printButton').addEventListener('click', async function(
     
     soNumberBox.classList.remove('required');
     
+    if (typeof fillBestByDatesForPrint === 'function') {
+        fillBestByDatesForPrint();
+    }
+
     // Capture and store data before printing
     try {
         await captureAndStoreLotsData(soNumber, 'retail');
