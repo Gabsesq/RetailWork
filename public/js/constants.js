@@ -44,7 +44,8 @@ const SKUMAP = {
     "860009592544": "TS-2in1-Shampoo",
     "860008876744": "2in1-SK-CT",
     "860008221971": "SK-PW-RL",
-    "850084444005": "Omega-Alg-Flax"
+    "850084444005": "Omega-Alg-Flax",
+    "850084444012": "SNT-PWD"
 };
 
 window.LOT_CODES = {}; // Will be populated from JSON
