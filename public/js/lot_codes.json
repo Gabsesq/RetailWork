@@ -271,6 +271,11 @@
       "bb_date": "2030-06-30"
     }
   },
+  "Edi-HJ-PB-FAM": {
+    "177931": {
+      "bb_date": "2028-10-14"
+    }
+  },
   "Edi-STRESS-PB-LRG-HEMP": {
     "177187": {
       "bb_date": "2028-08-04"
@@ -286,14 +291,14 @@
       "bb_date": "2028-07-08"
     }
   },
+  "Edi-HJ-PB-FAM-HEMP": {
+    "177929": {
+      "bb_date": "2028-10-15"
+    }
+  },
   "Edi-HJ-PB-LRG-HEMP": {
     "177191": {
       "bb_date": "2028-08-06"
-    }
-  },
-  "Edi-HJ-PB-SML-HEMP": {
-    "175369": {
-      "bb_date": "2028-07-11"
     }
   },
   "150-Mini-Stress-HO-HEMP": {
